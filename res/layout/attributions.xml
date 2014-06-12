@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TextView xmlns:android="http://schemas.android.com/apk/res/android"
+	android:id="@+id/attribs"
+	style="@style/Attributions"
+	android:layout_width="match_parent"
+	android:layout_height="wrap_content"
+	android:layout_marginLeft="@dimen/cards_parent_margin"
+	android:layout_marginRight="@dimen/cards_parent_margin"
+	android:drawablePadding="@dimen/padding"
+	android:drawableRight="@drawable/powered_by_google_light"
+	android:gravity="center_vertical"
+	android:maxLines="1"
+	android:paddingBottom="@dimen/padding_tiny"
+	android:paddingLeft="@dimen/card_padding"
+	android:paddingRight="@dimen/card_padding"
+	android:paddingTop="@dimen/padding_tiny"
+	android:translationY="@dimen/attributions_translationY" /> <!-- slides up from bottom -->

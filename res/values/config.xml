@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+	<integer name="backoff_retries">4</integer>
+	<!-- In metres. -->
+	<integer name="search_radius">20000</integer>
+
+	<string name="search_types">restaurant</string>
+	<string name="autocomplete_types">establishment</string>
+	<string name="auth_scope">audience:server:client_id:77419503291.apps.googleusercontent.com</string>
+	<string name="server_url">https://diningout.pushbit.webfactional.com/api</string>
+
+</resources>
