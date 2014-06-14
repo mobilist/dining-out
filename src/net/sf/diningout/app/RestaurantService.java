@@ -107,6 +107,7 @@ public class RestaurantService extends IntentService {
 				Restaurants.GOOGLE_REFERENCE };
 		EasyCursor c = new EasyCursor(cr.query(uri, proj, null, null, null));
 		Restaurant restaurant = new Restaurant();
+		restaurant.localId = id;
 		if (c.moveToFirst()) {
 			restaurant.globalId = c.getLong(Restaurants.GLOBAL_ID);
 			restaurant.googleId = c.getString(Restaurants.GOOGLE_ID);

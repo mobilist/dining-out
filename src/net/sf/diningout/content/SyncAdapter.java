@@ -221,7 +221,7 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter {
 		/* get system contacts */
 		String[] proj = { Email.ADDRESS, ContactsContract.Contacts.LOOKUP_KEY,
 				RawContacts.CONTACT_ID, ContactsContract.Contacts.DISPLAY_NAME };
-		String sel = Email.ADDRESS + " <> ?";
+		String sel = Email.IN_VISIBLE_GROUP + " = 1 AND " + Email.ADDRESS + " <> ?";
 		String[] args = { Accounts.selected().name };
 		EasyCursor sys = new EasyCursor(context.getContentResolver().query(Email.CONTENT_URI, proj,
 				sel, args, Email.ADDRESS));
@@ -487,7 +487,9 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter {
 		/* update restaurant rating and last visit if own review */
 		ContentResolver cr = context.getContentResolver(); // cp.call added in API 17
 		String id = String.valueOf(Restaurants.idForGlobalId(review.restaurantId));
-		cr.call(AUTHORITY_URI, CALL_UPDATE_RESTAURANT_RATING, id, null);
+		if (sync.action != INSERT) { // already called in add
+			cr.call(AUTHORITY_URI, CALL_UPDATE_RESTAURANT_RATING, id, null);
+		}
 		if (review.userId == 0 && sync.action != UPDATE) {
 			cr.call(AUTHORITY_URI, CALL_UPDATE_RESTAURANT_LAST_VISIT, id, null);
 		}

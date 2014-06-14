@@ -477,8 +477,9 @@ public class Contract {
 		public static ContentValues values(Restaurant restaurant) {
 			/* get current values for comparison */
 			String[] proj = { ADDRESS };
-			String sel = GLOBAL_ID + " = ?";
-			String[] args = { String.valueOf(restaurant.globalId) };
+			String sel = _ID + " = ? OR " + GLOBAL_ID + " = ?";
+			String[] args = { String.valueOf(restaurant.localId),
+					String.valueOf(restaurant.globalId) };
 			EasyCursor c = new EasyCursor(cr().query(CONTENT_URI, proj, sel, args, null));
 			int count = c.getCount();
 			String address = null;

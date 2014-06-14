@@ -52,7 +52,7 @@
 	<string name="following">Following</string>
 	<string name="invite">Invite</string>
 	<string name="inviting">Inviting</string>
-	<string name="non_contact">Someone not in contacts</string>
+	<string name="non_contact">Not in contacts</string>
 	<string name="invite_subject">Dining Out for Android</string>
 	<string name="invite_body">Join me in Dining Out for Android and we can share our restaurant reviews and recommendations together.\n\nGet it on Google Play!\nhttps://play.google.com/store/apps/details?id=net.sf.diningout\n</string>
 

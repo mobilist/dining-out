@@ -17,6 +17,8 @@
 
 package net.sf.diningout.app;
 
+import static net.sf.diningout.provider.Contract.AUTHORITY_URI;
+import static net.sf.diningout.provider.Contract.CALL_UPDATE_RESTAURANT_RATING;
 import static net.sf.sprockets.app.SprocketsApplication.cr;
 
 import java.util.List;
@@ -28,6 +30,7 @@ import net.sf.diningout.provider.Contract.Contacts;
 import net.sf.diningout.provider.Contract.Restaurants;
 import net.sf.diningout.provider.Contract.Reviews;
 import android.app.IntentService;
+import android.content.ContentResolver;
 import android.content.ContentUris;
 import android.content.Intent;
 
@@ -74,8 +77,11 @@ public class ReviewsService extends IntentService {
 			restaurantId = RestaurantService.add(review.restaurantId);
 		}
 		if (restaurantId > 0) { // add review
-			review.localId = ContentUris.parseId(cr().insert(Reviews.CONTENT_URI,
+			ContentResolver cr = cr();
+			review.localId = ContentUris.parseId(cr.insert(Reviews.CONTENT_URI,
 					Reviews.values(review)));
+			cr.call(AUTHORITY_URI, CALL_UPDATE_RESTAURANT_RATING, String.valueOf(restaurantId),
+					null);
 			if (!restaurantExists) { // fill in the placeholder
 				RestaurantService.download(restaurantId);
 			}
