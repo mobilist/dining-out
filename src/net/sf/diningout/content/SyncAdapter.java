@@ -18,6 +18,7 @@
 package net.sf.diningout.content;
 
 import static android.content.ContentResolver.SYNC_EXTRAS_INITIALIZE;
+import static android.content.ContentResolver.SYNC_EXTRAS_MANUAL;
 import static android.content.ContentResolver.SYNC_EXTRAS_UPLOAD;
 import static android.provider.BaseColumns._ID;
 import static android.text.format.DateUtils.DAY_IN_MILLIS;
@@ -31,6 +32,7 @@ import static net.sf.diningout.data.Status.DELETED;
 import static net.sf.diningout.data.Sync.Action.INSERT;
 import static net.sf.diningout.data.Sync.Action.UPDATE;
 import static net.sf.diningout.preference.Keys.ACCOUNT_INITIALISED;
+import static net.sf.diningout.preference.Keys.CLOUD_ID;
 import static net.sf.diningout.preference.Keys.INSTALL_ID;
 import static net.sf.diningout.preference.Keys.LAST_SYNC;
 import static net.sf.diningout.preference.Keys.ONBOARDED;
@@ -49,7 +51,6 @@ import static net.sf.sprockets.database.sqlite.SQLite.alias;
 import static net.sf.sprockets.database.sqlite.SQLite.aliased;
 import static net.sf.sprockets.database.sqlite.SQLite.millis;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.LinkedHashSet;
@@ -86,6 +87,7 @@ import net.sf.sprockets.content.Managers;
 import net.sf.sprockets.database.EasyCursor;
 import net.sf.sprockets.net.Uris;
 import net.sf.sprockets.preference.Prefs;
+import net.sf.sprockets.util.StringArrays;
 import android.accounts.Account;
 import android.content.AbstractThreadedSyncAdapter;
 import android.content.ContentProviderClient;
@@ -94,6 +96,7 @@ import android.content.ContentUris;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.SyncResult;
 import android.content.res.Resources;
 import android.database.CursorJoiner;
@@ -102,6 +105,7 @@ import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.RemoteException;
+import android.os.SystemClock;
 import android.provider.ContactsContract;
 import android.provider.ContactsContract.CommonDataKinds.Email;
 import android.provider.ContactsContract.RawContacts;
@@ -111,6 +115,7 @@ import android.text.TextUtils;
 import android.util.Log;
 import android.util.Pair;
 
+import com.google.android.gms.gcm.GoogleCloudMessaging;
 import com.google.common.hash.Hashing;
 import com.google.common.io.BaseEncoding;
 import com.squareup.picasso.Picasso;
@@ -147,8 +152,9 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter {
 			return; // will initialise on first normal sync
 		}
 		Context context = getContext();
+		SharedPreferences prefs = Prefs.get(context);
 		try {
-			if (!Prefs.getBoolean(context, ACCOUNT_INITIALISED)) { // first run, log the user in
+			if (!prefs.getBoolean(ACCOUNT_INITIALISED, false)) { // first run, log the user in
 				initUser(context, provider);
 			}
 			if (extras.getBoolean(SYNC_EXTRAS_CONTACTS_ONLY)) {
@@ -156,12 +162,13 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter {
 				uploadContacts(context, provider);
 				return;
 			}
-			if (!Prefs.getBoolean(context, ONBOARDED)) {
+			if (!prefs.getBoolean(ONBOARDED, false)) {
 				return; // don't sync yet
 			}
 			long now = System.currentTimeMillis(); // full upload and download daily
-			if (now - Prefs.getLong(context, LAST_SYNC) >= DAY_IN_MILLIS) {
-				Prefs.putLong(context, LAST_SYNC, now);
+			if (extras.containsKey(SYNC_EXTRAS_MANUAL)
+					|| now - prefs.getLong(LAST_SYNC, 0L) >= DAY_IN_MILLIS) {
+				prefs.edit().putLong(LAST_SYNC, now).apply();
 				extras.putBoolean(SYNC_EXTRAS_UPLOAD, true);
 				extras.putBoolean(SYNC_EXTRAS_DOWNLOAD, true);
 				syncContacts(context, provider);
@@ -173,14 +180,18 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter {
 			}
 			if (extras.containsKey(SYNC_EXTRAS_DOWNLOAD)) {
 				download(context, provider);
-				if (Prefs.getBoolean(context, SHOW_SYNC_NOTIFICATIONS)) {
+				if (prefs.getBoolean(SHOW_SYNC_NOTIFICATIONS, false)) {
 					notify(context, provider);
+				}
+			}
+			if (!prefs.contains(CLOUD_ID)) {
+				String id = uploadCloudId(context);
+				if (!TextUtils.isEmpty(id)) {
+					prefs.edit().putString(CLOUD_ID, id).apply();
 				}
 			}
 		} catch (RemoteException e) {
 			Log.e(TAG, "syncing the ContentProvider", e);
-		} catch (IOException e) {
-			Log.e(TAG, "loading contact or restaurant photo", e);
 		}
 	}
 
@@ -416,7 +427,7 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter {
 			int following = user.isFollowing ? 1 : 0;
 			vals.put(Contacts.FOLLOWING, following);
 			String sel = Contacts.GLOBAL_ID + " = ? AND " + Contacts.FOLLOWING + " <> ?";
-			String[] args = { String.valueOf(user.globalId), String.valueOf(following) };
+			String[] args = StringArrays.from(user.globalId, following);
 			if (cp.update(CONTACTS_URI, vals, sel, args) > 0 && user.isFollowing) {
 				ReviewsService.download(Contacts.idForGlobalId(user.globalId));
 			}
@@ -498,8 +509,7 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter {
 	/**
 	 * Post a system notification for any unread server changes.
 	 */
-	private void notify(Context context, ContentProviderClient cp) throws RemoteException,
-			IOException {
+	private void notify(Context context, ContentProviderClient cp) throws RemoteException {
 		String[] proj = { Syncs.TYPE_ID, Syncs.OBJECT_ID, millis(Syncs.ACTION_ON) };
 		String sel = Syncs.STATUS_ID + " = ?";
 		String[] args = { String.valueOf(ACTIVE.id) };
@@ -541,7 +551,8 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter {
 				if (photo != null && photo != Uri.EMPTY) {
 					try {
 						icon = Picasso.with(context).load(photo).resize(w, h).centerCrop().get();
-					} catch (FileNotFoundException e) { // own restaurant may not have photo
+					} catch (IOException e) { // contact or own restaurant may not have photo
+						Log.w(TAG, "loading contact or restaurant photo", e);
 					}
 				}
 			}
@@ -623,8 +634,7 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter {
 				alias(ReviewsJoinContacts.CONTACT_NAME) };
 		String sel = Reviews.TYPE_ID + " = ? AND " + ReviewsJoinRestaurants.REVIEW_STATUS_ID
 				+ " = ? AND " + ReviewsJoinRestaurants.RESTAURANT_STATUS_ID + " = ?";
-		String[] args = { String.valueOf(PRIVATE.id), String.valueOf(ACTIVE.id),
-				String.valueOf(ACTIVE.id) };
+		String[] args = StringArrays.from(PRIVATE.id, ACTIVE.id, ACTIVE.id);
 		Uri uri = ContentUris.withAppendedId(ReviewsJoinRestaurantsJoinContacts.CONTENT_URI, id);
 		EasyCursor c = new EasyCursor(cp.query(uri, proj, sel, args, null));
 		if (c.moveToFirst()) {
@@ -639,5 +649,31 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter {
 		}
 		c.close();
 		return Pair.create(photo, restaurantId);
+	}
+
+	/**
+	 * Get the device's cloud ID and upload it to the server.
+	 * 
+	 * @return null if the cloud ID could not be retrieved or sent to the server successfully
+	 */
+	private String uploadCloudId(Context context) {
+		Resources res = context.getResources();
+		int retries = res.getInteger(R.integer.backoff_retries);
+		String projectNumber = res.getString(R.string.project_number);
+		for (int i = 0; i < retries; i++) {
+			try {
+				String id = GoogleCloudMessaging.getInstance(context).register(projectNumber);
+				Boolean synced = Server.syncCloudId(id);
+				if (synced != null) {
+					return synced ? id : null;
+				}
+			} catch (IOException e) {
+				Log.e(TAG, "registering with GCM", e);
+			}
+			if (i + 1 < retries) {
+				SystemClock.sleep((1 << i) * 1000); // wait and retry, apparently register can error
+			}
+		}
+		return null;
 	}
 }

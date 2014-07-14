@@ -17,6 +17,9 @@
 
 package net.sf.diningout.app.ui;
 
+import static android.content.Intent.ACTION_SEND;
+import static android.content.Intent.EXTRA_SUBJECT;
+import static android.content.Intent.EXTRA_TEXT;
 import static android.provider.BaseColumns._ID;
 import static net.sf.diningout.data.Status.ACTIVE;
 import static net.sf.diningout.data.Status.DELETED;
@@ -26,12 +29,13 @@ import icepick.Icicle;
 import net.sf.diningout.R;
 import net.sf.diningout.provider.Contract.Restaurants;
 import net.sf.diningout.undobar.Undoer;
-import net.sf.diningout.view.Views;
 import net.sf.diningout.widget.RestaurantCursorAdapter;
 import net.sf.sprockets.app.ui.SprocketsFragment;
 import net.sf.sprockets.content.LocalCursorLoader;
 import net.sf.sprockets.content.Managers;
 import net.sf.sprockets.database.EasyCursor;
+import net.sf.sprockets.util.SparseArrays;
+import net.sf.sprockets.widget.SearchViews;
 import android.app.Activity;
 import android.app.LoaderManager.LoaderCallbacks;
 import android.content.CursorLoader;
@@ -56,6 +60,7 @@ import android.widget.CursorAdapter;
 import android.widget.GridView;
 import android.widget.SearchView;
 import android.widget.SearchView.OnQueryTextListener;
+import android.widget.ShareActionProvider;
 import butterknife.InjectView;
 
 import com.github.amlcurran.showcaseview.ShowcaseView.Builder;
@@ -71,6 +76,8 @@ public class RestaurantsFragment extends SprocketsFragment implements LoaderCall
 	private static final String SORT = "sort";
 	/** Loader arg for restaurant name to search for. */
 	private static final String SEARCH_QUERY = "search_query";
+	private static final String[] sShareFields = { Restaurants.NAME, Restaurants.VICINITY,
+			Restaurants.INTL_PHONE, Restaurants.URL };
 
 	@InjectView(R.id.list)
 	GridView mGrid;
@@ -80,6 +87,7 @@ public class RestaurantsFragment extends SprocketsFragment implements LoaderCall
 	private SearchView mSearch;
 	private boolean mShowcaseInserted;
 	private ActionMode mActionMode;
+	private final Intent mShare = new Intent(ACTION_SEND).setType("text/plain");
 
 	@Override
 	public void onAttach(Activity activity) {
@@ -117,7 +125,8 @@ public class RestaurantsFragment extends SprocketsFragment implements LoaderCall
 	public Loader<Cursor> onCreateLoader(int id, Bundle args) {
 		mLoaderArgs = args;
 		CursorLoader loader = null;
-		final String[] proj = { _ID, Restaurants.NAME, Restaurants.RATING };
+		final String[] proj = { _ID, Restaurants.NAME, Restaurants.VICINITY,
+				Restaurants.INTL_PHONE, Restaurants.URL, Restaurants.RATING };
 		StringBuilder sel = new StringBuilder(Restaurants.STATUS_ID).append(" = ?");
 		String[] selArgs;
 		String order = null;
@@ -134,7 +143,7 @@ public class RestaurantsFragment extends SprocketsFragment implements LoaderCall
 				order = Restaurants.NAME + " = '', " + Restaurants.NAME; // placeholders at end
 				break;
 			case 1:
-				proj[2] = millis(Restaurants.LAST_VISIT_ON);
+				proj[proj.length - 1] = millis(Restaurants.LAST_VISIT_ON);
 				order = Restaurants.LAST_VISIT_ON;
 				break;
 			case 2:
@@ -143,7 +152,7 @@ public class RestaurantsFragment extends SprocketsFragment implements LoaderCall
 						sel.toString(), selArgs, order) {
 					@Override
 					protected void onLocation(Location location) {
-						proj[2] = Restaurants.distance(location);
+						proj[proj.length - 1] = Restaurants.distance(location);
 					}
 				};
 				break;
@@ -160,28 +169,50 @@ public class RestaurantsFragment extends SprocketsFragment implements LoaderCall
 	public void onLoadFinished(Loader<Cursor> loader, Cursor data) {
 		if (mGrid != null) {
 			((CursorAdapter) mGrid.getAdapter()).swapCursor(new EasyCursor(data));
-			updateTitle();
-			if (!mShowcaseInserted
-					&& data.getCount() == 0
-					&& (mLoaderArgs == null || TextUtils.isEmpty(mLoaderArgs
-							.getString(SEARCH_QUERY)))) {
-				Activity a = getActivity();
-				new Builder(a, true).setTarget(new ActionItemTarget(a, R.id.add))
-						.setContentTitle(R.string.restaurants_showcase_title)
-						.setContentText(R.string.restaurants_showcase_detail).build();
-				mShowcaseInserted = true; // guard against multiple loads on config change
+			updateActionMode();
+			if (!mShowcaseInserted && data.getCount() == 0) {
+				if (mLoaderArgs == null || TextUtils.isEmpty(mLoaderArgs.getString(SEARCH_QUERY))) {
+					Activity a = getActivity();
+					new Builder(a, true).setTarget(new ActionItemTarget(a, R.id.add))
+							.setContentTitle(R.string.restaurants_showcase_title)
+							.setContentText(R.string.restaurants_showcase_detail).build();
+					mShowcaseInserted = true; // guard against multiple loads on config change
+				}
 			}
 		}
 	}
 
 	/**
-	 * Update the ActionMode title with the number of restaurants selected.
+	 * Update the ActionMode title and prepare the share Intent.
 	 */
-	private void updateTitle() {
+	private void updateActionMode() {
 		if (mActionMode != null) {
 			int count = mGrid.getCheckedItemCount();
 			if (count > 0) {
 				mActionMode.setTitle(getString(R.string.n_selected, count));
+				if (count > 1) {
+					mShare.putExtra(EXTRA_SUBJECT, getString(R.string.restaurants_share));
+				}
+				StringBuilder text = new StringBuilder(192 * count);
+				for (int i : SparseArrays.trueKeys(mGrid.getCheckedItemPositions())) {
+					if (text.length() > 0) { // separate sequential restaurants
+						text.append("\n");
+					}
+					EasyCursor c = (EasyCursor) mGrid.getItemAtPosition(i);
+					for (String field : sShareFields) {
+						String detail = c.getString(field);
+						if (count == 1 && field == Restaurants.NAME) {
+							mShare.putExtra(EXTRA_SUBJECT, detail);
+						}
+						if (!TextUtils.isEmpty(detail)) {
+							if (text.length() > 0) {
+								text.append("\n");
+							}
+							text.append(detail);
+						}
+					}
+				}
+				mShare.putExtra(EXTRA_TEXT, text.toString());
 			}
 		}
 	}
@@ -193,7 +224,8 @@ public class RestaurantsFragment extends SprocketsFragment implements LoaderCall
 			Activity a = getActivity();
 			inflater.inflate(R.menu.restaurants, menu);
 			MenuItem item = menu.findItem(R.id.search);
-			mSearch = Views.setBackground((SearchView) item.getActionView());
+			mSearch = SearchViews.setBackground((SearchView) item.getActionView(),
+					R.drawable.textfield_searchview);
 			mSearch.setSearchableInfo(Managers.search(a).getSearchableInfo(a.getComponentName()));
 			mSearch.setOnQueryTextListener(new SearchListener());
 			restoreSearchView(item);
@@ -272,7 +304,7 @@ public class RestaurantsFragment extends SprocketsFragment implements LoaderCall
 		void onRestaurantsSearch(String query);
 
 		/**
-		 * A restaurant has been chosen.
+		 * The restaurant was clicked.
 		 */
 		void onRestaurantClick(View view, long id);
 	}
@@ -305,6 +337,10 @@ public class RestaurantsFragment extends SprocketsFragment implements LoaderCall
 		public boolean onCreateActionMode(ActionMode mode, Menu menu) {
 			mActionMode = mode;
 			mode.getMenuInflater().inflate(R.menu.restaurants_cab, menu);
+			ShareActionProvider share = (ShareActionProvider) menu.findItem(R.id.share)
+					.getActionProvider();
+			share.setShareHistoryFileName("restaurant_share_history.xml");
+			share.setShareIntent(mShare);
 			return true;
 		}
 
@@ -314,9 +350,8 @@ public class RestaurantsFragment extends SprocketsFragment implements LoaderCall
 		}
 
 		@Override
-		public void onItemCheckedStateChanged(ActionMode mode, int position, long id,
-				boolean checked) {
-			updateTitle();
+		public void onItemCheckedStateChanged(ActionMode mode, int pos, long id, boolean checked) {
+			updateActionMode();
 		}
 
 		@Override
@@ -326,6 +361,7 @@ public class RestaurantsFragment extends SprocketsFragment implements LoaderCall
 				long[] ids = mGrid.getCheckedItemIds();
 				new Undoer(getActivity(), getString(R.string.n_deleted, ids.length),
 						Restaurants.CONTENT_URI, ids, DELETED, ACTIVE);
+				mode.finish(); // ensure mActionMode is null before updateActionMode is called
 				return true;
 			}
 			return false;

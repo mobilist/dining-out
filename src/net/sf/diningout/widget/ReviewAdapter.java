@@ -45,6 +45,16 @@ public class ReviewAdapter extends ResourceCursorAdapter {
 	public void bindView(View view, Context context, Cursor cursor) {
 		ReviewHolder review = ReviewHolder.from(view);
 		EasyCursor c = (EasyCursor) cursor;
+		review.mName.setText(name(context, c));
+		review.mTime.setText(time(context, c));
+		review.mRating.setText(c.getString(Reviews.RATING));
+		review.mComments.setText(comments(c));
+	}
+
+	/**
+	 * Get the name of the reviewer.
+	 */
+	public static String name(Context context, EasyCursor c) {
 		String name;
 		if (c.getColumnIndex(Reviews.CONTACT_ID) >= 0) { // private review
 			if (!c.isNull(Reviews.CONTACT_ID)) {
@@ -56,13 +66,24 @@ public class ReviewAdapter extends ResourceCursorAdapter {
 		} else { // public review
 			name = c.getString(Reviews.AUTHOR_NAME);
 		}
-		review.mName.setText(name);
+		return name;
+	}
+
+	/**
+	 * Get when the review was written.
+	 */
+	public static CharSequence time(Context context, EasyCursor c) {
 		long now = System.currentTimeMillis();
 		long when = c.getLong(Reviews.WRITTEN_ON);
-		review.mTime.setText(now - when > MINUTE_IN_MILLIS ? DateUtils.getRelativeTimeSpanString(
-				when, now, 0, FORMAT_ABBREV_ALL) : context.getString(R.string.recent_time));
-		review.mRating.setText(c.getString(Reviews.RATING));
-		review.mComments.setText(Html.fromHtml(c.getString(Reviews.COMMENTS)));
+		return now - when > MINUTE_IN_MILLIS ? DateUtils.getRelativeTimeSpanString(when, now, 0,
+				FORMAT_ABBREV_ALL) : context.getString(R.string.recent_time);
+	}
+
+	/**
+	 * Get the formatted review.
+	 */
+	public static CharSequence comments(EasyCursor c) {
+		return Html.fromHtml(c.getString(Reviews.COMMENTS).replace("\n", "<br />"));
 	}
 
 	static class ReviewHolder extends ViewHolder {

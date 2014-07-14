@@ -67,6 +67,7 @@ import net.sf.sprockets.google.Places.Params;
 import net.sf.sprockets.google.StreetView;
 import net.sf.sprockets.preference.Prefs;
 import net.sf.sprockets.util.Geos;
+import net.sf.sprockets.util.StringArrays;
 import android.content.ContentUris;
 import android.content.ContentValues;
 import android.database.Cursor;
@@ -478,8 +479,7 @@ public class Contract {
 			/* get current values for comparison */
 			String[] proj = { ADDRESS };
 			String sel = _ID + " = ? OR " + GLOBAL_ID + " = ?";
-			String[] args = { String.valueOf(restaurant.localId),
-					String.valueOf(restaurant.globalId) };
+			String[] args = StringArrays.from(restaurant.localId, restaurant.globalId);
 			EasyCursor c = new EasyCursor(cr().query(CONTENT_URI, proj, sel, args, null));
 			int count = c.getCount();
 			String address = null;

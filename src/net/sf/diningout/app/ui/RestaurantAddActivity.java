@@ -138,7 +138,7 @@ public class RestaurantAddActivity extends SprocketsActivity implements LoaderCa
 	}
 
 	@Override
-	public void onRestaurantNameChanged(CharSequence name) {
+	public void onRestaurantNameChange(CharSequence name) {
 		GridView view = nearby().mGrid;
 		if (name.length() > 0) {
 			name = name.toString().trim();

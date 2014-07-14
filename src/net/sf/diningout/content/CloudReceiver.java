@@ -18,6 +18,8 @@
 package net.sf.diningout.content;
 
 import static com.google.android.gms.gcm.GoogleCloudMessaging.MESSAGE_TYPE_MESSAGE;
+import static net.sf.diningout.data.CloudMessage.ACTION_KEY;
+import static net.sf.diningout.data.CloudMessage.ACTION_REQUEST_SYNC;
 import static net.sf.diningout.provider.Contract.AUTHORITY;
 import static net.sf.sprockets.content.Content.SYNC_EXTRAS_DOWNLOAD;
 import net.sf.diningout.accounts.Accounts;
@@ -36,7 +38,8 @@ public class CloudReceiver extends BroadcastReceiver {
 	@Override
 	public void onReceive(Context context, Intent intent) {
 		String type = GoogleCloudMessaging.getInstance(context).getMessageType(intent);
-		if (MESSAGE_TYPE_MESSAGE.equals(type)) {
+		if (MESSAGE_TYPE_MESSAGE.equals(type)
+				&& ACTION_REQUEST_SYNC.equals(intent.getStringExtra(ACTION_KEY))) {
 			Bundle extras = new Bundle();
 			extras.putBoolean(SYNC_EXTRAS_DOWNLOAD, true);
 			ContentResolver.requestSync(Accounts.selected(), AUTHORITY, extras);

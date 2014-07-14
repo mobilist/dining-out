@@ -18,7 +18,10 @@
 package net.sf.diningout.app.ui;
 
 import static android.content.Intent.ACTION_DIAL;
+import static android.content.Intent.ACTION_SEND;
 import static android.content.Intent.ACTION_VIEW;
+import static android.content.Intent.EXTRA_SUBJECT;
+import static android.content.Intent.EXTRA_TEXT;
 import static android.text.Spanned.SPAN_INCLUSIVE_INCLUSIVE;
 import static net.sf.diningout.app.ui.RestaurantActivity.EXTRA_ID;
 import static net.sf.diningout.picasso.OverlayTransformation.LEFT;
@@ -38,12 +41,16 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.text.SpannableString;
+import android.text.SpannableStringBuilder;
 import android.text.TextUtils;
 import android.text.style.ForegroundColorSpan;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
+import android.widget.ShareActionProvider;
 import android.widget.TextView;
 import butterknife.InjectView;
 import butterknife.OnClick;
@@ -53,7 +60,7 @@ import com.squareup.picasso.Picasso;
 import com.squareup.picasso.RequestCreator;
 
 /**
- * Displays a restaurant's details and reviews. The attaching Activity must have
+ * Displays a restaurant's details. The attaching Activity must have
  * {@link RestaurantActivity#EXTRA_ID} in its Intent extras.
  */
 public class RestaurantFragment extends SprocketsFragment implements LoaderCallbacks<Cursor> {
@@ -75,12 +82,19 @@ public class RestaurantFragment extends SprocketsFragment implements LoaderCallb
 	private double mLong;
 	private String mIntlPhone;
 	private String mUrl;
+	private final Intent mShare = new Intent(ACTION_SEND).setType("text/plain");
 	private boolean mPhotoLoaded;
 
 	@Override
 	public void onAttach(Activity activity) {
 		super.onAttach(activity);
 		mId = activity.getIntent().getLongExtra(EXTRA_ID, 0L);
+	}
+
+	@Override
+	public void onCreate(Bundle savedInstanceState) {
+		super.onCreate(savedInstanceState);
+		setHasOptionsMenu(true);
 	}
 
 	@Override
@@ -123,7 +137,8 @@ public class RestaurantFragment extends SprocketsFragment implements LoaderCallb
 			mName = c.getString(Restaurants.NAME);
 			mNameView.setText(mName);
 			mAddress = c.getString(Restaurants.ADDRESS);
-			mVicinity.setText(c.getString(Restaurants.VICINITY));
+			String vicinity = c.getString(Restaurants.VICINITY);
+			mVicinity.setText(vicinity);
 			mLat = c.getDouble(Restaurants.LATITUDE);
 			mLong = c.getDouble(Restaurants.LONGITUDE);
 			mIntlPhone = c.getString(Restaurants.INTL_PHONE);
@@ -132,12 +147,31 @@ public class RestaurantFragment extends SprocketsFragment implements LoaderCallb
 			if (!TextUtils.isEmpty(mUrl)) {
 				mWebsite.setText(Uri.parse(mUrl).getHost());
 			}
-			if (TextUtils.isEmpty(a.getTitle())) { // set transparent title while tab fragments load
-				SpannableString title = new SpannableString(mName);
-				title.setSpan(new ForegroundColorSpan(0), 0, mName.length(),
+			/* set Activity title */
+			CharSequence title = a.getTitle();
+			if (TextUtils.isEmpty(title)) { // set transparent while tab fragments load
+				SpannableString name = new SpannableString(mName);
+				name.setSpan(new ForegroundColorSpan(0), 0, mName.length(),
 						SPAN_INCLUSIVE_INCLUSIVE);
-				a.setTitle(title);
+				a.setTitle(name);
+			} else if (title instanceof SpannableStringBuilder) { // update (and keep alpha)
+				SpannableStringBuilder name = (SpannableStringBuilder) title;
+				a.setTitle(name.replace(0, name.length(), mName));
 			}
+			/* set share subject and text */
+			mShare.putExtra(EXTRA_SUBJECT, mName);
+			StringBuilder text = new StringBuilder(192);
+			text.append(mName);
+			if (!TextUtils.isEmpty(vicinity)) {
+				text.append("\n").append(vicinity);
+			}
+			if (!TextUtils.isEmpty(mIntlPhone)) {
+				text.append("\n").append(mIntlPhone);
+			}
+			if (!TextUtils.isEmpty(mUrl)) {
+				text.append("\n").append(mUrl);
+			}
+			mShare.putExtra(EXTRA_TEXT, text.toString());
 		}
 		if (mPhoto != null && !mPhotoLoaded) {
 			RequestCreator req = Picasso.with(a).load(RestaurantPhotos.uriForRestaurant(mId)).fit()
@@ -155,6 +189,16 @@ public class RestaurantFragment extends SprocketsFragment implements LoaderCallb
 				}
 			});
 		}
+	}
+
+	@Override
+	public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
+		super.onCreateOptionsMenu(menu, inflater);
+		inflater.inflate(R.menu.restaurant, menu);
+		ShareActionProvider share = (ShareActionProvider) menu.findItem(R.id.share)
+				.getActionProvider();
+		share.setShareHistoryFileName("restaurant_share_history.xml");
+		share.setShareIntent(mShare);
 	}
 
 	@OnClick({ R.id.name, R.id.address, R.id.phone, R.id.website })

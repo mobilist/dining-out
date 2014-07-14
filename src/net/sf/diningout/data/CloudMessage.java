@@ -15,30 +15,15 @@
  * see <http://www.gnu.org/licenses/>.
  */
 
-package net.sf.diningout.view;
-
-import net.sf.diningout.R;
-import android.view.View;
-import android.widget.SearchView;
+package net.sf.diningout.data;
 
 /**
- * Utility methods for working with Views.
+ * Keys and values used in cloud messages.
  */
-public class Views {
-	private Views() {
-	}
+public class CloudMessage {
+	public static final String ACTION_KEY = "collapse_key";
+	public static final String ACTION_REQUEST_SYNC = "request_sync";
 
-	/**
-	 * Override the default background with a theme version.
-	 */
-	public static SearchView setBackground(SearchView view) {
-		int id = view.getResources().getIdentifier("android:id/search_plate", null, null);
-		if (id > 0) {
-			View search = view.findViewById(id);
-			if (search != null) {
-				search.setBackgroundResource(R.drawable.textfield_searchview);
-			}
-		}
-		return view;
+	private CloudMessage() {
 	}
 }

@@ -2,7 +2,7 @@
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
 	android:layout_width="match_parent"
 	android:layout_height="@dimen/grid_card_height"
-	android:background="@drawable/card" >
+	android:background="@drawable/image_card" >
 
 	<ImageView
 		android:id="@+id/photo"
@@ -16,9 +16,9 @@
 		android:layout_height="match_parent"
 		android:gravity="right"
 		android:orientation="vertical"
-		android:paddingLeft="@dimen/padding_medium"
-		android:paddingRight="@dimen/padding_medium"
-		android:paddingTop="@dimen/padding" >
+		android:paddingLeft="@dimen/padding_large"
+		android:paddingRight="@dimen/padding_large"
+		android:paddingTop="@dimen/padding_medium" >
 
 		<TextView
 			android:id="@+id/name"

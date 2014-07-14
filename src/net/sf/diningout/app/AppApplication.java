@@ -17,22 +17,53 @@
 
 package net.sf.diningout.app;
 
+import static net.sf.diningout.preference.Keys.CLOUD_ID;
+import static net.sf.diningout.provider.Contract.AUTHORITY;
+
 import java.io.File;
 
 import net.sf.diningout.R;
+import net.sf.diningout.accounts.Accounts;
 import net.sf.sprockets.app.VersionedApplication;
+import net.sf.sprockets.preference.Prefs;
 
 import org.apache.commons.io.FileUtils;
 
+import android.content.ContentResolver;
+import android.os.Bundle;
 import android.preference.PreferenceManager;
 
+import com.google.android.gms.analytics.GoogleAnalytics;
+import com.google.android.gms.analytics.Tracker;
+
 /**
- * Performs application update tasks.
+ * Provides services and performs application update tasks.
  */
 public class AppApplication extends VersionedApplication {
+	private static Tracker sTracker;
+
+	@Override
+	public void onCreate() {
+		super.onCreate();
+		GoogleAnalytics ga = GoogleAnalytics.getInstance(this);
+		ga.enableAutoActivityReports(this);
+		sTracker = ga.newTracker(R.xml.tracker);
+	}
+
+	/**
+	 * Get the application's Google Analytics tracker.
+	 */
+	public static Tracker tracker() {
+		return sTracker;
+	}
+
 	@Override
 	public void onVersionChanged(int oldCode, String oldName, int newCode, String newName) {
 		PreferenceManager.setDefaultValues(this, R.xml.preferences, true);
+		if (Prefs.contains(this, CLOUD_ID)) { // need to re-register
+			Prefs.remove(this, CLOUD_ID);
+			ContentResolver.requestSync(Accounts.selected(), AUTHORITY, new Bundle());
+		}
 		if (oldCode < 100) { // delete pre-1.0.0 restaurant images
 			File file = getExternalFilesDir(null);
 			if (file != null) {

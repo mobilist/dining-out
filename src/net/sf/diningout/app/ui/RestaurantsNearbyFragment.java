@@ -23,9 +23,8 @@ import static android.widget.AdapterView.INVALID_POSITION;
 import static net.sf.diningout.provider.Contract.Restaurants.SEARCH_TYPES;
 import static net.sf.sprockets.google.Places.Params.RankBy.DISTANCE;
 import static net.sf.sprockets.google.Places.Request.NEARBY_SEARCH;
-import static net.sf.sprockets.view.animation.Interpolators.ACCELERATE;
+import static net.sf.sprockets.google.Places.Response.Status.UNKNOWN_ERROR;
 import static net.sf.sprockets.view.animation.Interpolators.ANTI_OVER;
-import static net.sf.sprockets.view.animation.Interpolators.OVERSHOOT;
 import icepick.Icicle;
 
 import java.util.List;
@@ -39,15 +38,16 @@ import net.sf.sprockets.google.LocalPlacesParams;
 import net.sf.sprockets.google.Place;
 import net.sf.sprockets.google.Places.Params;
 import net.sf.sprockets.google.Places.Response;
+import net.sf.sprockets.google.Places.Response.Status;
 import net.sf.sprockets.view.Views;
 import net.sf.sprockets.widget.GooglePlacesAdapter;
 import android.app.Activity;
 import android.app.LoaderManager.LoaderCallbacks;
 import android.content.Loader;
+import android.content.res.Resources;
 import android.os.Bundle;
 import android.text.Html;
 import android.text.TextUtils;
-import android.text.method.LinkMovementMethod;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -75,8 +75,6 @@ public class RestaurantsNearbyFragment extends SprocketsFragment implements
 	ViewStub mEmptyStub;
 	@InjectView(R.id.list)
 	GridView mGrid;
-	@InjectView(R.id.attribs)
-	TextView mAttribs;
 	@Icicle
 	String mSearch;
 	private Listener mListener;
@@ -99,12 +97,18 @@ public class RestaurantsNearbyFragment extends SprocketsFragment implements
 	@Override
 	public void onViewCreated(View view, Bundle savedInstanceState) {
 		super.onViewCreated(view, savedInstanceState);
-		if (mHeader != null && !TextUtils.isEmpty(mSearch)) { // loader data is search results
-			mHeader.setText(R.string.search_results_title);
+		if (mHeader != null) {
+			if (!TextUtils.isEmpty(mSearch)) { // loader data is search results
+				mHeader.setText(R.string.search_results_title);
+			}
+		} else { // add padding between autocomplete card and grid
+			Resources res = getResources();
+			int parent = res.getDimensionPixelOffset(R.dimen.cards_parent_margin);
+			int sibling = res.getDimensionPixelOffset(R.dimen.cards_sibling_margin);
+			mGrid.setPadding(parent, sibling, parent, sibling);
 		}
 		mGrid.setAdapter(new RestaurantPlacesAdapter(mGrid));
 		mGrid.setOnItemClickListener(this);
-		mAttribs.setMovementMethod(LinkMovementMethod.getInstance()); // clickable hrefs
 	}
 
 	/**
@@ -121,6 +125,7 @@ public class RestaurantsNearbyFragment extends SprocketsFragment implements
 	@Override
 	public Loader<Response<List<Place>>> onCreateLoader(int id, Bundle args) {
 		mProgress.setVisibility(VISIBLE);
+		mProgress.animate().alpha(1.0f);
 		Params params = new LocalPlacesParams(getActivity()).types(SEARCH_TYPES);
 		if (TextUtils.isEmpty(mSearch)) {
 			params.rankBy(DISTANCE);
@@ -139,59 +144,53 @@ public class RestaurantsNearbyFragment extends SprocketsFragment implements
 		if (mGrid == null) {
 			return;
 		}
-		if (resp != null) {
-			switch (resp.getStatus()) {
-			case OK:
-				Views.gone(mEmpty);
-				GooglePlacesAdapter adapter = (GooglePlacesAdapter) mGrid.getAdapter();
-				adapter.swapPlaces(resp.getResult());
-				if (mListener != null) {
-					int pos = mGrid.getCheckedItemPosition();
-					if (pos != INVALID_POSITION) { // restore state from when it was first clicked
-						mListener.onRestaurantClick(adapter.getItem(pos));
+		final Status status = resp != null ? resp.getStatus() : UNKNOWN_ERROR;
+		switch (status) {
+		case OK:
+			GooglePlacesAdapter adapter = (GooglePlacesAdapter) mGrid.getAdapter();
+			adapter.swapPlaces(resp.getResult());
+			if (mListener != null) {
+				int pos = mGrid.getCheckedItemPosition();
+				if (pos != INVALID_POSITION) { // restore state from when it was first clicked
+					mListener.onRestaurantClick(adapter.getItem(pos));
+				}
+			}
+			break;
+		case ZERO_RESULTS:
+			if (mEmpty == null) {
+				mEmpty = (TextView) mEmptyStub.inflate();
+			}
+			mEmpty.setText(Html.fromHtml(getString(R.string.search_results_empty,
+					TextUtils.htmlEncode(mSearch))));
+			break;
+		}
+		if (mProgress.getVisibility() == VISIBLE) { // swap progress bar with grid or empty card
+			mProgress.animate().alpha(0.0f).withEndAction(new Runnable() {
+				@Override
+				public void run() {
+					if (mProgress != null) {
+						mProgress.setVisibility(GONE);
+						results(status);
 					}
 				}
-				if (mGrid.getAlpha() < 1.0f) { // fade in the list
-					mGrid.animate().alpha(1.0f).withLayer();
-				}
-				/* animate any listings attributions into place */
-				List<String> attribs = resp.getHtmlAttributions();
-				if (attribs != null) {
-					mAttribs.setText(Html.fromHtml(attribs.get(0)));
-				}
-				if (mAttribs.getTranslationY() > 0.0f) { // slide bottom bar up
-					mAttribs.animate().translationY(0.0f).setInterpolator(OVERSHOOT)
-							.setStartDelay(2700);
-				}
-				break;
-			case ZERO_RESULTS:
-				if (mEmpty == null) {
-					mEmpty = (TextView) mEmptyStub.inflate();
-				}
-				mEmpty.setText(Html.fromHtml(getString(R.string.search_results_empty,
-						TextUtils.htmlEncode(mSearch))));
-				Views.visible(mEmpty);
-				break;
-			}
+			});
+		} else if (mGrid.getAlpha() < 1.0f) {
+			results(status);
 		}
-		if (mProgress.getVisibility() == VISIBLE) { // slide progress bar off screen
-			mProgress.animate().translationX(mProgress.getWidth()).setInterpolator(ACCELERATE)
-					.setStartDelay(1500).withEndAction(new Runnable() {
-						@Override
-						public void run() {
-							if (mProgress != null) {
-								mProgress.setVisibility(GONE);
-								mProgress.postDelayed(new Runnable() {
-									@Override
-									public void run() {
-										if (mProgress != null) {
-											mProgress.setTranslationX(0.0f);
-										}
-									}
-								}, 600L); // reset after layout transition completes
-							}
-						}
-					});
+	}
+
+	/**
+	 * Fade in the GridView or show the empty card if there weren't any results.
+	 */
+	private void results(Status status) {
+		switch (status) {
+		case OK:
+			Views.gone(mEmpty); // in case previously shown
+			mGrid.animate().alpha(1.0f).withLayer();
+			break;
+		case ZERO_RESULTS:
+			Views.visible(mEmpty);
+			break;
 		}
 	}
 
@@ -209,7 +208,7 @@ public class RestaurantsNearbyFragment extends SprocketsFragment implements
 	void search(String name) {
 		if (mHeader != null && TextUtils.isEmpty(mSearch)) { // flip to search results first time
 			mHeader.animate().rotationXBy(360.0f).setInterpolator(ANTI_OVER).setDuration(1200L)
-					.setStartDelay(900L);
+					.setStartDelay(300L);
 			mHeader.postDelayed(new Runnable() {
 				@Override
 				public void run() {
@@ -217,7 +216,7 @@ public class RestaurantsNearbyFragment extends SprocketsFragment implements
 						mHeader.setText(R.string.search_results_title);
 					}
 				}
-			}, 1500L);
+			}, 900L); // swap text when flipped over (half way through rotation)
 		}
 		mSearch = name;
 		mGrid.animate().alpha(0.0f).withLayer().withEndAction(new Runnable() {
@@ -225,10 +224,11 @@ public class RestaurantsNearbyFragment extends SprocketsFragment implements
 			public void run() {
 				if (mGrid != null) {
 					mGrid.smoothScrollToPosition(0);
+					Views.gone(mEmpty);
+					getLoaderManager().restartLoader(0, null, RestaurantsNearbyFragment.this);
 				}
 			}
 		});
-		getLoaderManager().restartLoader(0, null, this);
 	}
 
 	@Override
@@ -249,7 +249,7 @@ public class RestaurantsNearbyFragment extends SprocketsFragment implements
 	 */
 	interface Listener {
 		/**
-		 * A restaurant has been chosen.
+		 * The restaurant was clicked.
 		 */
 		void onRestaurantClick(Place place);
 	}

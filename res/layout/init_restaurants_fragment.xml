@@ -2,7 +2,6 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
 	android:layout_width="match_parent"
 	android:layout_height="match_parent"
-	android:animateLayoutChanges="true"
 	android:orientation="vertical"
 	android:paddingTop="@dimen/cards_parent_margin" >
 
@@ -12,7 +11,8 @@
 		android:id="@+id/progress"
 		android:layout_width="match_parent"
 		android:layout_height="wrap_content"
-		android:layout_marginTop="@dimen/cards_sibling_margin"
+		android:layout_marginLeft="@dimen/cards_parent_margin"
+		android:layout_marginRight="@dimen/cards_parent_margin"
 		android:indeterminate="true"
 		android:visibility="gone" />
 
@@ -21,7 +21,7 @@
 		android:layout_width="match_parent"
 		android:layout_height="0dp"
 		android:layout_weight="1"
-		android:alpha="0"
+		android:alpha="0.0"
 		android:choiceMode="multipleChoice"
 		android:clipToPadding="false"
 		android:columnWidth="@dimen/grid_card_width"
@@ -34,7 +34,5 @@
 		android:paddingTop="@dimen/cards_sibling_margin"
 		android:scrollbarStyle="outsideOverlay"
 		android:verticalSpacing="@dimen/cards_sibling_margin" />
-
-	<include layout="@layout/attributions" />
 
 </LinearLayout>

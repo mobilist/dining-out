@@ -222,15 +222,32 @@ public class Server {
 	}
 
 	/**
+	 * Send the cloud ID to the server.
+	 * 
+	 * @return true if successful or null if there was a problem communicating with the server
+	 */
+	public static Boolean syncCloudId(String id) {
+		if (haveToken()) {
+			try {
+				return API.syncCloudId(id);
+			} catch (RetrofitError e) {
+				log(e);
+			}
+		}
+		return null;
+	}
+
+	/**
 	 * True if we have the current auth token, false otherwise.
 	 */
 	private static boolean haveToken() {
 		Context context = context();
 		String account = Prefs.getString(context, ACCOUNT_NAME);
 		if (!TextUtils.isEmpty(account)) {
-			Resources res = res();
+			Resources res = context.getResources();
+			int retries = res.getInteger(R.integer.backoff_retries);
 			String scope = res.getString(R.string.auth_scope);
-			for (int i = 0; i < res.getInteger(R.integer.backoff_retries); i++) {
+			for (int i = 0; i < retries; i++) {
 				try {
 					sToken = GoogleAuthUtil.getTokenWithNotification(context, account, scope, null);
 					return true;
@@ -240,7 +257,9 @@ public class Server {
 				} catch (IOException e) {
 					Log.e(TAG, "getting auth token", e);
 				}
-				SystemClock.sleep((1 << i) * 1000); // wait and retry, occasional network error
+				if (i + 1 < retries) {
+					SystemClock.sleep((1 << i) * 1000); // wait and retry, occasional network error
+				}
 			}
 		}
 		return false;
@@ -280,6 +299,9 @@ public class Server {
 
 		@GET("/sync/v0")
 		Syncing sync();
+
+		@POST("/sync-cloud-id/v0")
+		boolean syncCloudId(@Body String id);
 	}
 
 	/**

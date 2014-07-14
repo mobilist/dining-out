@@ -100,7 +100,7 @@ CREATE TABLE review (
 	type_id INTEGER NOT NULL,
 	contact_id INTEGER, -- friend that wrote the review
 	author_name TEXT COLLATE LOCALIZED, -- public review author
-	comments TEXT COLLATE LOCALIZED,
+	comments TEXT NOT NULL COLLATE LOCALIZED,
 	rating INTEGER, -- 1-5
 	written_on TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
 	status_id INTEGER NOT NULL DEFAULT 1,

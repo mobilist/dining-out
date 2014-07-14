@@ -24,8 +24,6 @@ import static net.sf.diningout.provider.Contract.Restaurants.SEARCH_RADIUS;
 import static net.sf.diningout.provider.Contract.Restaurants.SEARCH_TYPES;
 import static net.sf.sprockets.google.Places.Request.NEARBY_SEARCH;
 import static net.sf.sprockets.google.Places.Response.Status.OK;
-import static net.sf.sprockets.view.animation.Interpolators.ACCELERATE;
-import static net.sf.sprockets.view.animation.Interpolators.OVERSHOOT;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -47,9 +45,7 @@ import android.app.Activity;
 import android.app.LoaderManager.LoaderCallbacks;
 import android.content.Loader;
 import android.os.Bundle;
-import android.text.Html;
 import android.text.TextUtils;
-import android.text.method.LinkMovementMethod;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -58,7 +54,6 @@ import android.widget.AbsListView.OnScrollListener;
 import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemClickListener;
 import android.widget.GridView;
-import android.widget.TextView;
 import butterknife.InjectView;
 
 import com.google.common.collect.Iterables;
@@ -74,8 +69,6 @@ public class InitRestaurantsFragment extends SprocketsFragment implements
 	View mProgress;
 	@InjectView(R.id.list)
 	GridView mGrid;
-	@InjectView(R.id.attribs)
-	TextView mAttribs;
 	private Listener mListener;
 	/** Three lists of restaurants that are loaded on demand. */
 	private final List<List<Place>> mPlaces = new ArrayList<>(3);
@@ -105,7 +98,6 @@ public class InitRestaurantsFragment extends SprocketsFragment implements
 		mGrid.setAdapter(new RestaurantPlacesAdapter(mGrid));
 		mGrid.setOnItemClickListener(this);
 		mGrid.setOnScrollListener(this);
-		mAttribs.setMovementMethod(LinkMovementMethod.getInstance()); // clickable hrefs
 	}
 
 	@Override
@@ -139,39 +131,31 @@ public class InitRestaurantsFragment extends SprocketsFragment implements
 		if (mGrid == null) {
 			return;
 		}
-		int id = loader.getId();
 		if (resp != null && resp.getStatus() == OK) {
+			int id = loader.getId();
 			mPlaces.set(id, resp.getResult());
 			/* join the batches for the full list */
 			Iterable<Place> places = Iterables.concat(Iterables.filter(mPlaces, notNull()));
 			((GooglePlacesAdapter) mGrid.getAdapter()).swapPlaces(Lists.newArrayList(places));
-			if (id == 0 && mGrid.getAlpha() < 1.0f) { // fade in the list
-				mGrid.animate().alpha(1.0f).withLayer();
-			}
 			mListener.onRestaurantClick(mGrid.getCheckedItemCount());
-			/* animate any listings attributions into place */
-			List<String> attribs = resp.getHtmlAttributions();
-			if (attribs != null) {
-				mAttribs.setText(Html.fromHtml(attribs.get(0)));
+			if (id < mTokens.length) { // save any token for future batch load
+				mTokens[id] = resp.getNextPageToken();
 			}
-			if (id == 0 && mAttribs.getTranslationY() > 0.0f) { // slide bottom bar up
-				mAttribs.animate().translationY(0.0f).setInterpolator(OVERSHOOT)
-						.setStartDelay(3300);
-			}
-			if (id < mTokens.length) {
-				mTokens[id] = resp.getNextPageToken(); // save for future batch load
-			}
-		}
-		if (id == 0 && mProgress.getVisibility() == VISIBLE) { // slide progress bar off screen
-			mProgress.animate().translationX(mProgress.getWidth()).setInterpolator(ACCELERATE)
-					.setStartDelay(2100).withEndAction(new Runnable() {
+			if (id == 0) { // animate views into place
+				if (mProgress.getVisibility() == VISIBLE) { // swap progress bar and grid
+					mProgress.animate().alpha(0.0f).withEndAction(new Runnable() {
 						@Override
 						public void run() {
 							if (mProgress != null) {
 								mProgress.setVisibility(GONE);
+								mGrid.animate().alpha(1.0f).withLayer();
 							}
 						}
 					});
+				} else if (mGrid.getAlpha() < 1.0f) {
+					mGrid.animate().alpha(1.0f).withLayer();
+				}
+			}
 		}
 	}
 

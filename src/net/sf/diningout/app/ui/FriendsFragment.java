@@ -26,8 +26,8 @@ import static net.sf.diningout.data.Status.ACTIVE;
 import static net.sf.diningout.picasso.OverlayTransformation.UP;
 import static net.sf.diningout.provider.Contract.ACTION_CONTACTS_SYNCED;
 import static net.sf.diningout.provider.Contract.ACTION_CONTACTS_SYNCING;
+import static net.sf.diningout.provider.Contract.AUTHORITY;
 import static net.sf.diningout.provider.Contract.SYNC_EXTRAS_CONTACTS_ONLY;
-import static net.sf.sprockets.view.animation.Interpolators.ACCELERATE;
 import static net.sf.sprockets.view.animation.Interpolators.ANTICIPATE;
 import static net.sf.sprockets.view.animation.Interpolators.OVERSHOOT;
 import icepick.Icicle;
@@ -38,7 +38,6 @@ import java.util.List;
 import net.sf.diningout.R;
 import net.sf.diningout.accounts.Accounts;
 import net.sf.diningout.app.ReviewsService;
-import net.sf.diningout.provider.Contract;
 import net.sf.diningout.provider.Contract.Contacts;
 import net.sf.sprockets.app.ui.SprocketsFragment;
 import net.sf.sprockets.content.Content;
@@ -162,7 +161,7 @@ public class FriendsFragment extends SprocketsFragment implements LoaderCallback
 		super.onResume();
 		Bundle extras = new Bundle();
 		extras.putBoolean(SYNC_EXTRAS_CONTACTS_ONLY, true);
-		Content.requestSyncNow(Accounts.selected(), Contract.AUTHORITY, extras);
+		Content.requestSyncNow(Accounts.selected(), AUTHORITY, extras);
 	}
 
 	@Override
@@ -336,7 +335,7 @@ public class FriendsFragment extends SprocketsFragment implements LoaderCallback
 		super.onPause();
 		if (!mInit) { // otherwise selections are saved by InitActivity
 			Activity a = getActivity();
-			if (!a.isChangingConfigurations()) {
+			if (a.isFinishing()) {
 				invite();
 			}
 			/* save any changes to followed contacts (always since adapter resets checks) */
@@ -455,33 +454,25 @@ public class FriendsFragment extends SprocketsFragment implements LoaderCallback
 	}
 
 	/**
-	 * Shows the progress bar when contacts are syncing with the server and hides it when finished.
+	 * Shows the progress bar when contacts are synchronising with the server and hides it when
+	 * finished.
 	 */
 	private class Receiver extends BroadcastReceiver {
 		@Override
 		public void onReceive(Context context, Intent intent) {
 			if (mProgress != null) {
-				if (intent.getAction() == ACTION_CONTACTS_SYNCING) {
+				if (intent.getAction() == ACTION_CONTACTS_SYNCING) { // show progress bar
 					mProgress.setVisibility(VISIBLE);
-				} else { // slide progress bar off screen
-					mProgress.animate().translationX(mProgress.getWidth())
-							.setInterpolator(ACCELERATE).setStartDelay(900)
-							.withEndAction(new Runnable() {
-								@Override
-								public void run() {
-									if (mProgress != null) {
-										mProgress.setVisibility(GONE);
-										mProgress.postDelayed(new Runnable() {
-											@Override
-											public void run() {
-												if (mProgress != null) {
-													mProgress.setTranslationX(0.0f);
-												}
-											}
-										}, 600L); // reset after layout transition completes
-									}
-								}
-							});
+					mProgress.animate().alpha(1.0f);
+				} else { // hide progress bar
+					mProgress.animate().alpha(0.0f).withEndAction(new Runnable() {
+						@Override
+						public void run() {
+							if (mProgress != null) {
+								mProgress.setVisibility(GONE);
+							}
+						}
+					});
 				}
 			}
 		}

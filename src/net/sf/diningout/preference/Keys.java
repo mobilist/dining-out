@@ -31,6 +31,8 @@ public class Keys {
 	public static final String ONBOARDED = "onboarded";
 	/** Epoch milliseconds of the last full sync. */
 	public static final String LAST_SYNC = "last_sync";
+	/** Used by the server to contact this device through cloud messaging. */
+	public static final String CLOUD_ID = "cloud_id";
 	/** True if notifications for sync events should be shown. */
 	public static final String SHOW_SYNC_NOTIFICATIONS = "show_sync_notifications";
 	/** URI path for the selected notification ringtone or empty if no ringtone should be played. */

@@ -50,10 +50,6 @@
 		<item name="android:textAllCaps">true</item>
 	</style>
 
-	<style name="Attributions" parent="Card.Text.Light">
-		<item name="android:textSize">@dimen/text_tiny</item>
-	</style>
-
 	<style name="Showcase" parent="ShowcaseView.Light">
 		<item name="sv_backgroundColor">@color/sv_background</item>
 		<item name="sv_titleTextAppearance">@style/TextAppearance.Showcase.Title</item>

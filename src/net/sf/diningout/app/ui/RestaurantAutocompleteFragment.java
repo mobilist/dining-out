@@ -23,6 +23,7 @@ import net.sf.sprockets.google.Place;
 import net.sf.sprockets.text.TextWatcherAdapter;
 import net.sf.sprockets.view.inputmethod.InputMethods;
 import net.sf.sprockets.widget.GooglePlaceAutoComplete;
+import net.sf.sprockets.widget.GooglePlaceAutoComplete.OnPlaceClickListener;
 import android.app.Activity;
 import android.os.Bundle;
 import android.text.TextUtils;
@@ -30,7 +31,6 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
-import android.widget.AdapterView.OnItemClickListener;
 import butterknife.InjectView;
 import butterknife.OnClick;
 
@@ -38,8 +38,7 @@ import butterknife.OnClick;
  * Displays an autocomplete field for restaurants and provides search requests. Activities that
  * attach this must implement {@link Listener}.
  */
-public class RestaurantAutocompleteFragment extends SprocketsFragment implements
-		OnItemClickListener {
+public class RestaurantAutocompleteFragment extends SprocketsFragment {
 	@InjectView(R.id.name)
 	GooglePlaceAutoComplete mName;
 	private Listener mListener;
@@ -61,15 +60,15 @@ public class RestaurantAutocompleteFragment extends SprocketsFragment implements
 		mName.addTextChangedListener(new TextWatcherAdapter() {
 			@Override
 			public void onTextChanged(CharSequence s, int start, int before, int count) {
-				mListener.onRestaurantNameChanged(s);
+				mListener.onRestaurantNameChange(s);
 			}
 		});
-		mName.setOnItemClickListener(this);
-	}
-
-	@Override
-	public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-		mListener.onRestaurantAutocomplete((Place) parent.getItemAtPosition(position));
+		mName.setOnPlaceClickListener(new OnPlaceClickListener() {
+			@Override
+			public void onPlaceClick(AdapterView<?> parent, Place place, int position) {
+				mListener.onRestaurantAutocomplete(place);
+			}
+		});
 	}
 
 	@OnClick(R.id.search)
@@ -92,17 +91,17 @@ public class RestaurantAutocompleteFragment extends SprocketsFragment implements
 	 */
 	interface Listener {
 		/**
-		 * The entered restaurant name has changed.
+		 * The entered restaurant name changed.
 		 */
-		void onRestaurantNameChanged(CharSequence name);
+		void onRestaurantNameChange(CharSequence name);
 
 		/**
-		 * A restaurant has been selected from the autocomplete options.
+		 * The restaurant in autocomplete suggestions was clicked.
 		 */
 		void onRestaurantAutocomplete(Place place);
 
 		/**
-		 * A request has been made to search for the restaurant.
+		 * A request to search for the restaurant was made.
 		 */
 		void onRestaurantSearch(CharSequence name);
 	}

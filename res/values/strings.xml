@@ -34,6 +34,7 @@
 	<!-- restaurants -->
 	<string name="restaurants_title">Restaurants</string>
 	<string name="restaurants_searchable_hint">Search restaurants</string>
+	<string name="restaurants_share">Restaurants</string>
 	<string name="restaurants_showcase_title">Getting started</string>
 	<string name="restaurants_showcase_detail">Tap the “+” icon to add restaurants to your list.</string>
 	<string name="restaurant_photo">Restaurant photo</string>
@@ -81,6 +82,11 @@
 		<item>4</item>
 		<item>5</item>
 	</string-array>
+
+	<plurals name="reviews_share">
+		<item quantity="one">Review of %s</item>
+		<item quantity="other">Reviews of %s</item>
+	</plurals>
 
 	<!-- add restaurant -->
 	<string name="add_restaurant_title">Add Restaurant</string>

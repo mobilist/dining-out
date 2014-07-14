@@ -1,8 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-	<!-- Image height + tiny bottom padding. -->
-	<dimen name="attributions_translationY">18dp</dimen>
 	<dimen name="navigation_drawer_width">240dp</dimen>
 	<dimen name="restaurant_photo_width">456dp</dimen>
 	<dimen name="restaurant_photo_height">298dp</dimen>

@@ -2,13 +2,9 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android" >
 
 	<item
-		android:id="@+id/delete"
-		android:icon="@drawable/ic_action_discard"
-		android:showAsAction="ifRoom"
-		android:title="@string/delete"/>
-	<item
 		android:id="@+id/share"
 		android:actionProviderClass="android.widget.ShareActionProvider"
+		android:orderInCategory="99"
 		android:showAsAction="ifRoom"
 		android:title="@string/share"/>
 

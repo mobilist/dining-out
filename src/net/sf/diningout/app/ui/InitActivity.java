@@ -173,12 +173,11 @@ public class InitActivity extends PanesActivity implements InitRestaurantsFragme
 				}
 				/* send followed friends */
 				FriendsFragment friends = (FriendsFragment) findFragmentByPane(2);
-				intent.putExtra(EXTRA_CONTACT_IDS, friends.getFollowedFriends());
-				startService(intent);
+				startService(intent.putExtra(EXTRA_CONTACT_IDS, friends.getFollowedFriends()));
 				Prefs.putBoolean(this, ONBOARDED, true);
 				startActivity(new Intent(this, RestaurantsActivity.class));
 				friends.invite();
-				finish();
+				finish(); // last so invite returns to restaurants
 			}
 			return true;
 		default:
@@ -308,9 +307,9 @@ public class InitActivity extends PanesActivity implements InitRestaurantsFragme
 				new Handler().postDelayed(new Runnable() {
 					@Override
 					public void run() {
+						finish(); // first so RestaurantsActivity is task root (affects transition)
 						startActivity(new Intent(InitActivity.this, RestaurantsActivity.class));
 						overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
-						finish();
 					}
 				}, 1000L); // hopefully a restaurant is already added to avoid triggering 'add' help
 			}
