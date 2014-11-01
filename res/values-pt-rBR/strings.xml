@@ -1,119 +1,122 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="app_name">Dining Out</string>
+    <string name="author_email_address">pushbit@gmail.com</string>
 
-	<string name="app_name">Dining Out</string>
-	<string name="author_email_address">pushbit@gmail.com</string>
+    <!-- init -->
+    <string name="init_title">Iniciar</string>
+    <string name="s_selected">%s selecionados</string>
+    <string name="s_s_selected">%1$s, %2$s selecionados</string>
+    <string name="init_restaurants_header_title">Adicionar restaurantes</string>
+    <string name="init_restaurants_header_text">Escolha um destes restaurantes locais para começar a sua lista.</string>
+    <string name="init_friends_header_title">Adicionar amigos</string>
+    <string name="init_friends_header_text">Siga amigos que também usam o <i>Dining Out</i> e convide outras pessoas para participar.</string>
+    <plurals name="n_restaurants">
+        <item quantity="one">um restaurante</item>
+        <item quantity="other">%d restaurantes</item>
+    </plurals>
+    <plurals name="n_friends">
+        <item quantity="one">1 amigo</item>
+        <item quantity="other">%d amigos</item>
+    </plurals>
 
-	<!-- init -->
-	<string name="init_title">Iniciar</string>
-	<string name="s_selected">%s selecionados</string>
-	<string name="s_s_selected">%1$s, %2$s selecionados</string>
-	<string name="init_restaurants_header_title">Adicionar restaurantes</string>
-	<string name="init_restaurants_header_text">Escolha um destes restaurantes locais para começar a sua lista.</string>
-	<string name="init_friends_header_title">Adicionar amigos</string>
-	<string name="init_friends_header_text">Siga amigos que também usam o <i>Dining Out</i> e convide outras pessoas para participar.</string>
+    <!-- global -->
+    <string name="feedback_destination">@string/author_email_address</string>
+    <string name="feedback_subject">Entre em contato</string>
+    <string-array name="navigation_drawer_items">
+        <item>@string/restaurants_title</item>
+        <item>@string/friends_title</item>
+        <item>@string/notifications_title</item>
+    </string-array>
 
-	<plurals name="n_restaurants">
-		<item quantity="one">um restaurante</item>
-		<item quantity="other">%d restaurantes</item>
-	</plurals>
-	<plurals name="n_friends">
-		<item quantity="one">1 amigo</item>
-		<item quantity="other">%d amigos</item>
-	</plurals>
+    <!-- restaurants -->
+    <string name="restaurants_title">Restaurantes</string>
+    <string name="restaurants_searchable_hint">Pesquisar restaurantes</string>
+    <string name="restaurants_share">Restaurantes</string>
+    <string name="restaurants_showcase_title">Iniciar</string>
+    <string name="restaurants_showcase_detail">Toque no ícone "+" para adicionar restaurantes à sua lista.</string>
+    <string name="restaurant_photo">Foto do restaurante</string>
+    <string-array name="restaurants_sort">
+        <item>nome</item>
+        <item>última visita</item>
+        <item>distância</item>
+        <item>classificação</item>
+    </string-array>
 
-	<!-- global -->
-	<string name="feedback_destination">@string/author_email_address</string>
-	<string name="feedback_subject">Entre em contato</string>
+    <!-- restaurant -->
+    <string name="tab_private">Privado</string>
+    <string name="tab_public">Público</string>
+    <string name="tab_notes">Notas</string>
+    <string name="notes_hint">Não se esqueça…</string>
 
-	<string-array name="navigation_drawer_items">
-		<item>@string/restaurants_title</item>
-		<item>@string/friends_title</item>
-	</string-array>
+    <!-- reviews -->
+    <string name="add_review">Adicionar um</string>
+    <string name="add_review_title">Adicionar um</string>
+    <string name="edit_review_title">Editar avaliação</string>
+    <string name="comments_hint">Como foi?</string>
+    <string name="star">Estrela</string>
+    <string name="add_empty_review">Adicionar avaliação vazia?</string>
+    <string name="me">Eu</string>
+    <string name="recent_time">agora</string>
+    <string name="reviews_public_empty_title">Nenhum ainda</string>
+    <string name="reviews_public_empty_text">Pesquisar avaliações na web</string>
+    <string name="reviews_public_search">%s avaliação</string>
+    <string-array name="ratings">
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+        <item>4</item>
+        <item>5</item>
+    </string-array>
+    <plurals name="reviews_share">
+        <item quantity="one">Avaliação do %s</item>
+        <item quantity="other">Avaliações do %s</item>
+    </plurals>
 
-	<!-- restaurants -->
-	<string name="restaurants_title">Restaurantes</string>
-	<string name="restaurants_searchable_hint">Pesquisar restaurantes</string>
-	<string name="restaurants_share">Restaurantes</string>
-	<string name="restaurants_showcase_title">Iniciar</string>
-	<string name="restaurants_showcase_detail">Toque no ícone "+" para adicionar restaurantes à sua lista.</string>
-	<string name="restaurant_photo">Foto do restaurante</string>
+    <!-- add restaurant -->
+    <string name="add_restaurant_title">Adicionar Restaurante</string>
+    <string name="add_s">Adicionar %s</string>
+    <string name="autocomplete_title">Autocompletar</string>
+    <string name="autocomplete_hint">Comece digitando um nome…</string>
+    <string name="nearby_title">Proximidade</string>
+    <string name="search_results_title">Resultados da pesquisa</string>
+    <string name="search_results_empty">&lt;b>%s&lt;/b> não foram encontrados restaurantes.</string>
 
-	<string-array name="restaurants_sort">
-		<item>nome</item>
-		<item>última visita</item>
-		<item>distância</item>
-		<item>classificação</item>
-	</string-array>
+    <!-- friends -->
+    <string name="friends_title">Amigos</string>
+    <string name="friend_photo">Foto do amigo</string>
+    <string name="follow">Seguir</string>
+    <string name="following">Seguindo</string>
+    <string name="invite">Convidar</string>
+    <string name="inviting">Convidando</string>
+    <string name="non_contact">[Não está na lista de contatos]</string>
+    <string name="invite_subject">Dining Out para Android</string>
+    <string name="invite_body">Convido-o a utilizar o Dining Out para Android para que possamos compartilhar as avaliações e recomendações dos restaurantes que visitamos.\n\nObtenha já no Google Play!\nhttps://play.google.com/store/apps/details?id=net.sf.diningout\n</string>
 
-	<!-- friends -->
-	<string name="friends_title">Amigos</string>
-	<string name="friend_photo">Foto do amigo</string>
-	<string name="follow">Seguir</string>
-	<string name="following">Seguindo</string>
-	<string name="invite">Convidar</string>
-	<string name="inviting">Convidando</string>
-	<string name="non_contact">Não está na lista de contatos</string>
-	<string name="invite_subject">Dining Out para Android</string>
-	<string name="invite_body">Convido-o a utilizar o Dining Out para Android para que possamos compartilhar as avaliações e recomendações dos restaurantes que visitamos.\n\nObtenha já no Google Play!\nhttps://play.google.com/store/apps/details?id=net.sf.diningout\n</string>
+    <!-- notifications -->
+    <string name="notifications_title">Notificações</string>
+    <string name="notification_photo">Notificação de foto</string>
+    <string name="notifications_empty_title">Nenhum</string>
+    <string name="notifications_empty_text">Convidar amigos</string>
 
-	<!-- restaurant -->
-	<string name="tab_private">Privado</string>
-	<string name="tab_public">Público</string>
-	<string name="tab_notes">Notas</string>
-	<string name="notes_hint">Não se esqueça…</string>
+    <!-- settings -->
+    <string name="account">Conta</string>
+    <string name="notifications">Notificações</string>
+    <string name="ringtone">Toque</string>
+    <string name="vibrate">Vibrar</string>
+    <string name="allow_analytics">Ajude a melhorar o Dining Out</string>
+    <string name="allow_analytics_on">Enviar estatísticas de uso anônimas</string>
+    <string name="allow_analytics_off">Não enviar estatísticas de uso anônimas</string>
 
-	<!-- reviews -->
-	<string name="add_review">Adicionar um</string>
-	<string name="add_review_title">Adicionar um</string>
-	<string name="edit_review_title">Editar avaliação</string>
-	<string name="comments_hint">Como foi?</string>
-	<string name="star">Estrela</string>
-	<string name="me">Eu</string>
-	<string name="recent_time">agora</string>
-	<string name="reviews_public_empty_title">Nenhum ainda</string>
-	<string name="reviews_public_empty_text">Pesquisar avaliações na web</string>
-	<string name="reviews_public_search">%s avaliação</string>
-
-	<string-array name="ratings">
-		<item>1</item>
-		<item>2</item>
-		<item>3</item>
-		<item>4</item>
-		<item>5</item>
-	</string-array>
-
-	<plurals name="reviews_share">
-		<item quantity="one">Avaliação do %s</item>
-		<item quantity="other">Avaliações do %s</item>
-	</plurals>
-
-	<!-- add restaurant -->
-	<string name="add_restaurant_title">Adicionar Restaurante</string>
-	<string name="add_s">Adicionar %s</string>
-	<string name="autocomplete_title">Autocompletar</string>
-	<string name="autocomplete_hint">Comece digitando um nome…</string>
-	<string name="nearby_title">Proximidade</string>
-	<string name="search_results_title">Resultados da pesquisa</string>
-	<string name="search_results_empty">&lt;b>%s&lt;/b> não foram encontrados restaurantes.</string>
-
-	<!-- settings -->
-	<string name="account">Conta</string>
-	<string name="notifications">Notificações</string>
-	<string name="ringtone">Toque</string>
-	<string name="vibrate">Vibrar</string>
-
-	<!-- notifications (system) -->
-	<string name="new_friend">%s está no &lt;i>Dining Out&lt;/i></string>
-	<string name="new_review">%1$s foi de %2$s</string>
-
-	<plurals name="n_new_friends">
-		<item quantity="one">1 novo amigo</item>
-		<item quantity="other">%d novos amigos</item>
-	</plurals>
-	<plurals name="n_new_reviews">
-		<item quantity="one">uma nova avaliação</item>
-		<item quantity="other">%d novos avaliações</item>
-	</plurals>
-
+    <!-- notifications (system) -->
+    <string name="new_friend">%s está no &lt;i>Dining Out&lt;/i></string>
+    <string name="new_review">%1$s foi de %2$s</string>
+    <plurals name="n_new_friends">
+        <item quantity="one">1 novo amigo</item>
+        <item quantity="other">%d novos amigos</item>
+    </plurals>
+    <plurals name="n_new_reviews">
+        <item quantity="one">uma nova avaliação</item>
+        <item quantity="other">%d novos avaliações</item>
+    </plurals>
 </resources>

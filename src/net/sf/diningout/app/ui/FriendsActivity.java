@@ -17,33 +17,36 @@
 
 package net.sf.diningout.app.ui;
 
-import static android.view.Gravity.START;
-import net.sf.diningout.R;
-import net.sf.diningout.app.ui.FriendsFragment.Listener;
 import android.os.Bundle;
 import android.support.v4.widget.DrawerLayout;
+
+import net.sf.diningout.R;
+import net.sf.diningout.app.ui.FriendsFragment.Listener;
+
 import butterknife.InjectView;
+
+import static android.view.Gravity.START;
 
 /**
  * Displays contacts to follow and invite to join.
  */
 public class FriendsActivity extends BaseNavigationDrawerActivity implements Listener {
-	@InjectView(R.id.root)
-	DrawerLayout mDrawerLayout;
+    @InjectView(R.id.root)
+    DrawerLayout mDrawerLayout;
 
-	@Override
-	protected void onCreate(Bundle savedInstanceState) {
-		super.onCreate(savedInstanceState);
-		setContentView(R.layout.friends_activity);
-		setDrawerLayout(mDrawerLayout);
-	}
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.friends_activity);
+        setDrawerLayout(mDrawerLayout);
+    }
 
-	@Override
-	public boolean onFriendsOptionsMenu() {
-		return !mDrawerLayout.isDrawerOpen(START);
-	}
+    @Override
+    public boolean onFriendsOptionsMenu() {
+        return !mDrawerLayout.isDrawerOpen(START);
+    }
 
-	@Override
-	public void onFriendClick(int total) {
-	}
+    @Override
+    public void onFriendClick(int total) {
+    }
 }

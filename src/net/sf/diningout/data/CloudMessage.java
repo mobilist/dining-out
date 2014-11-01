@@ -21,9 +21,9 @@ package net.sf.diningout.data;
  * Keys and values used in cloud messages.
  */
 public class CloudMessage {
-	public static final String ACTION_KEY = "collapse_key";
-	public static final String ACTION_REQUEST_SYNC = "request_sync";
+    public static final String ACTION_KEY = "collapse_key";
+    public static final String ACTION_REQUEST_SYNC = "request_sync";
 
-	private CloudMessage() {
-	}
+    private CloudMessage() {
+    }
 }

@@ -1,63 +1,63 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:android="http://schemas.android.com/apk/res/android">
 
-	<style name="Widget.ActionBar" parent="@android:style/Widget.Holo.Light.ActionBar.Solid.Inverse">
-		<item name="android:background">@drawable/ab_background</item>
-	</style>
+    <style name="Widget.ActionBar" parent="@android:style/Widget.Holo.Light.ActionBar.Solid.Inverse">
+        <item name="android:background">@drawable/ab_background</item>
+    </style>
 
-	<style name="Widget.ActionBar.DropDownItem" parent="@android:style/Widget.Holo.DropDownItem.Spinner">
-		<item name="android:textAppearance">@android:style/TextAppearance.Holo.Inverse</item>
-		<item name="android:textColor">?android:textColorSecondaryInverse</item>
-		<item name="android:background">@drawable/ab_list_selector</item>
-	</style>
+    <style name="Widget.ActionBar.DropDownItem" parent="@android:style/Widget.Holo.DropDownItem.Spinner">
+        <item name="android:textAppearance">@android:style/TextAppearance.Holo.Inverse</item>
+        <item name="android:textColor">?android:textColorSecondaryInverse</item>
+        <item name="android:background">@drawable/ab_list_selector</item>
+    </style>
 
-	<style name="Widget.AutoCompleteTextView" parent="@android:style/Widget.Holo.Light.AutoCompleteTextView">
-		<item name="android:dropDownSelector">?android:listChoiceBackgroundIndicator</item>
-	</style>
+    <style name="Widget.AutoCompleteTextView" parent="@android:style/Widget.Holo.Light.AutoCompleteTextView">
+        <item name="android:dropDownSelector">?android:listChoiceBackgroundIndicator</item>
+    </style>
 
-	<style name="Widget.Button" parent="@android:style/Widget.Holo.Light.Button">
-		<item name="android:background">@drawable/btn_default</item>
-	</style>
+    <style name="Widget.Button" parent="@android:style/Widget.Holo.Light.Button">
+        <item name="android:background">@drawable/btn_default</item>
+    </style>
 
-	<style name="Widget.Button.Borderless" parent="@android:style/Widget.Holo.Light.Button.Borderless.Small">
-		<item name="android:minWidth">@dimen/min_touch_size</item>
-		<item name="android:paddingLeft">0dp</item>
-		<item name="android:paddingRight">0dp</item>
-	</style>
+    <style name="Widget.Button.Borderless" parent="@android:style/Widget.Holo.Light.Button.Borderless.Small">
+        <item name="android:minWidth">@dimen/min_touch_size</item>
+        <item name="android:paddingLeft">0dp</item>
+        <item name="android:paddingRight">0dp</item>
+    </style>
 
-	<style name="Cell" />
+    <style name="Cell"/>
 
-	<style name="Cell.Title">
-		<item name="android:textSize">@dimen/text_medium</item>
-		<item name="android:textColor">@color/text_lightest</item>
-		<item name="android:textStyle">italic</item>
-		<item name="android:fontFamily">sans-serif-condensed</item>
-		<item name="android:ellipsize">marquee</item>
-	</style>
+    <style name="Cell.Title">
+        <item name="android:textSize">@dimen/text_medium</item>
+        <item name="android:textColor">@color/text_lightest</item>
+        <item name="android:textStyle">italic</item>
+        <item name="android:fontFamily">sans-serif-condensed</item>
+        <item name="android:ellipsize">marquee</item>
+    </style>
 
-	<style name="Cell.Title.Small">
-		<item name="android:textSize">@dimen/text_small</item>
-	</style>
+    <style name="Cell.Title.Small">
+        <item name="android:textSize">@dimen/text_small</item>
+    </style>
 
-	<style name="Cell.Secondary">
-		<item name="android:textSize">@dimen/text_small</item>
-		<item name="android:textColor">@color/cell_secondary</item>
-		<item name="android:textStyle">bold</item>
-	</style>
+    <style name="Cell.Secondary">
+        <item name="android:textSize">@dimen/text_small</item>
+        <item name="android:textColor">@color/cell_secondary</item>
+        <item name="android:textStyle">bold</item>
+    </style>
 
-	<style name="Cell.Secondary.Action">
-		<item name="android:textSize">@dimen/text_tiny</item>
-		<item name="android:textAllCaps">true</item>
-	</style>
+    <style name="Cell.Secondary.Action">
+        <item name="android:textSize">@dimen/text_tiny</item>
+        <item name="android:textAllCaps">true</item>
+    </style>
 
-	<style name="Showcase" parent="ShowcaseView.Light">
-		<item name="sv_backgroundColor">@color/sv_background</item>
-		<item name="sv_titleTextAppearance">@style/TextAppearance.Showcase.Title</item>
-		<item name="sv_showcaseColor">@color/highlight</item>
-	</style>
+    <style name="Showcase" parent="ShowcaseView.Light">
+        <item name="sv_backgroundColor">@color/sv_background</item>
+        <item name="sv_titleTextAppearance">@style/TextAppearance.Showcase.Title</item>
+        <item name="sv_showcaseColor">@color/highlight</item>
+    </style>
 
-	<style name="TextAppearance.Showcase.Title" parent="@style/TextAppearance.ShowcaseView.Title">
-		<item name="android:textColor">@color/highlight</item>
-	</style>
+    <style name="TextAppearance.Showcase.Title" parent="@style/TextAppearance.ShowcaseView.Title">
+        <item name="android:textColor">@color/highlight</item>
+    </style>
 
 </resources>

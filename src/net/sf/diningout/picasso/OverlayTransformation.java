@@ -17,11 +17,6 @@
 
 package net.sf.diningout.picasso;
 
-import static android.graphics.Color.TRANSPARENT;
-import static android.graphics.Shader.TileMode.CLAMP;
-import static net.sf.sprockets.app.SprocketsApplication.res;
-import net.sf.diningout.R;
-import net.sf.sprockets.graphics.Bitmaps;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.LinearGradient;
@@ -30,69 +25,84 @@ import android.graphics.Paint;
 import com.google.common.base.Objects;
 import com.squareup.picasso.Transformation;
 
+import net.sf.diningout.R;
+import net.sf.sprockets.graphics.Bitmaps;
+
+import static android.graphics.Color.TRANSPARENT;
+import static android.graphics.Shader.TileMode.CLAMP;
+import static net.sf.sprockets.app.SprocketsApplication.res;
+
 /**
  * Adds translucent background protection that covers half of the input and fades to transparent
  * across the other half.
  */
 public class OverlayTransformation implements Transformation {
-	/** Covers the bottom half and fades from the middle to the top. */
-	public static final OverlayTransformation UP = new OverlayTransformation(0);
-	// /** Covers the left half and fades from the middle to the right. */
-	// public static final OverlayTransformation RIGHT = new OverlayTransformation(90);
-	/** Covers the top half and fades from the middle to the bottom. */
-	public static final OverlayTransformation DOWN = new OverlayTransformation(180);
-	/** Covers the right half and fades from the middle to the left. */
-	public static final OverlayTransformation LEFT = new OverlayTransformation(270);
-	private static final int COLOR = res().getColor(R.color.overlay);
-	private static final int[] sColors = { COLOR, TRANSPARENT };
-	private static final float[] sPositions = { 0.5f, 1.0f };
+    /**
+     * Covers the bottom half and fades from the middle to the top.
+     */
+    public static final OverlayTransformation UP = new OverlayTransformation(0);
+    /**
+     * Covers the left half and fades from the middle to the right.
+     */
+    public static final OverlayTransformation RIGHT = new OverlayTransformation(90);
+    /**
+     * Covers the top half and fades from the middle to the bottom.
+     */
+    public static final OverlayTransformation DOWN = new OverlayTransformation(180);
+    /**
+     * Covers the right half and fades from the middle to the left.
+     */
+    public static final OverlayTransformation LEFT = new OverlayTransformation(270);
+    private static final int COLOR = res().getColor(R.color.overlay);
+    private static final int[] sColors = {COLOR, TRANSPARENT};
+    private static final float[] sPositions = {0.5f, 1.0f};
 
-	private final int mAngle;
+    private final int mAngle;
 
-	/**
-	 * Fade from translucent to transparent in the direction of the angle.
-	 */
-	private OverlayTransformation(int angle) {
-		mAngle = angle;
-	}
+    /**
+     * Fade from translucent to transparent in the direction of the angle.
+     */
+    private OverlayTransformation(int angle) {
+        mAngle = angle;
+    }
 
-	@Override
-	public Bitmap transform(Bitmap source) {
-		Bitmap bm = Bitmaps.mutable(source);
-		if (bm == null) { // couldn't make a copy to transform
-			return source;
-		}
-		Canvas canvas = new Canvas(bm);
-		Paint paint = new Paint();
-		int width = bm.getWidth();
-		int height = bm.getHeight();
-		float x0 = 0.0f, y0 = 0.0f, x1 = 0.0f, y1 = 0.0f;
-		switch (mAngle) {
-		case 0:
-			y0 = height;
-			break;
-		case 90:
-			x1 = width;
-			break;
-		case 180:
-			y1 = height;
-			break;
-		case 270:
-			x0 = width;
-			break;
-		}
-		paint.setShader(new LinearGradient(x0, y0, x1, y1, sColors, sPositions, CLAMP));
-		canvas.drawRect(0.0f, 0.0f, width, height, paint);
-		return bm;
-	}
+    @Override
+    public Bitmap transform(Bitmap source) {
+        Bitmap bm = Bitmaps.mutable(source);
+        if (bm == null) { // couldn't make a copy to transform
+            return source;
+        }
+        Canvas canvas = new Canvas(bm);
+        Paint paint = new Paint();
+        int width = bm.getWidth();
+        int height = bm.getHeight();
+        float x0 = 0.0f, y0 = 0.0f, x1 = 0.0f, y1 = 0.0f;
+        switch (mAngle) {
+            case 0:
+                y0 = height;
+                break;
+            case 90:
+                x1 = width;
+                break;
+            case 180:
+                y1 = height;
+                break;
+            case 270:
+                x0 = width;
+                break;
+        }
+        paint.setShader(new LinearGradient(x0, y0, x1, y1, sColors, sPositions, CLAMP));
+        canvas.drawRect(0.0f, 0.0f, width, height, paint);
+        return bm;
+    }
 
-	@Override
-	public String key() {
-		return toString();
-	}
+    @Override
+    public String key() {
+        return toString();
+    }
 
-	@Override
-	public String toString() {
-		return Objects.toStringHelper(this).add("angle", mAngle).toString();
-	}
+    @Override
+    public String toString() {
+        return Objects.toStringHelper(this).add("angle", mAngle).toString();
+    }
 }

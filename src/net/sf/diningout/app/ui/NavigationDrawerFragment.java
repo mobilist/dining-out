@@ -17,17 +17,6 @@
 
 package net.sf.diningout.app.ui;
 
-import static android.content.Intent.ACTION_SENDTO;
-import static android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP;
-import static android.view.Gravity.START;
-
-import java.util.Collections;
-
-import net.sf.diningout.R;
-import net.sf.sprockets.app.ui.BaseNavigationDrawerFragment;
-import net.sf.sprockets.app.ui.NavigationDrawerActivity;
-import net.sf.sprockets.content.Intents;
-import net.sf.sprockets.net.Uris;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
@@ -36,63 +25,76 @@ import android.widget.ListView;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableBiMap;
 
+import net.sf.diningout.R;
+import net.sf.sprockets.app.ui.BaseNavigationDrawerFragment;
+import net.sf.sprockets.app.ui.NavigationDrawerActivity;
+import net.sf.sprockets.content.Intents;
+import net.sf.sprockets.net.Uris;
+
+import java.util.Collections;
+
+import static android.content.Intent.ACTION_SENDTO;
+import static android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP;
+import static android.view.Gravity.START;
+
 /**
  * Displays the navigation drawer items and starts the associated Activities when tapped.
  */
 public class NavigationDrawerFragment extends BaseNavigationDrawerFragment {
-	/** Map Activities to their navigation drawer item. */
-	private static final BiMap<Class<?>, Integer> ITEMS = ImmutableBiMap.of(
-			(Class<?>) RestaurantsActivity.class, R.string.restaurants_title,
-			FriendsActivity.class, R.string.friends_title, SettingsActivity.class, R.id.settings);
+    /**
+     * Map Activities to their navigation drawer item.
+     */
+    private static final BiMap<Class<?>, Integer> ITEMS = ImmutableBiMap.of(
+            (Class<?>) RestaurantsActivity.class, R.string.restaurants_title,
+            FriendsActivity.class, R.string.friends_title,
+            NotificationsActivity.class, R.string.notifications_title,
+            SettingsActivity.class, R.id.settings);
 
-	@Override
-	public void onCreate(Bundle savedInstanceState) {
-		super.onCreate(savedInstanceState);
-		if (savedInstanceState == null) {
-			setItems(R.array.navigation_drawer_items);
-			setSelectedItemResId(ITEMS.get(getActivity().getClass()));
-			showSettings(true).showFeedback(true);
-		}
-	}
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        if (savedInstanceState == null) {
+            setItems(R.array.navigation_drawer_items);
+            setSelectedItemResId(ITEMS.get(getActivity().getClass()));
+            showSettings(true).showFeedback(true);
+        }
+    }
 
-	@Override
-	public void onListItemClick(ListView list, View view, int position, long id, int resId) {
-		super.onListItemClick(list, view, position, id, resId);
-		final NavigationDrawerActivity a = (NavigationDrawerActivity) getActivity();
-		a.getDrawerLayout().closeDrawer(START);
-		if (resId == R.id.feedback) { // special external case
-			final Intent intent = new Intent(ACTION_SENDTO, Uris.mailto(
-					Collections.singletonList(getString(R.string.feedback_destination)), null,
-					null, getString(R.string.feedback_subject), null));
-			if (Intents.hasActivity(a, intent)) {
-				view.postDelayed(new Runnable() {
-					@Override
-					public void run() {
-						startActivity(intent);
-					}
-				}, 300L); // start Activity after drawer closes
-			}
-			return;
-		}
-		/* start associated Activity */
-		final Class<?> orig = a.getClass();
-		Class<?> dest = ITEMS.inverse().get(resId);
-		if (dest != orig) {
-			a.setOneTimeDrawerActionDelay(300L); // finish fade to dest before ActionBar restored
-			final Intent intent = new Intent(a, dest);
-			if (dest == RestaurantsActivity.class) {
-				intent.addFlags(FLAG_ACTIVITY_CLEAR_TOP);
-			}
-			view.postDelayed(new Runnable() {
-				@Override
-				public void run() {
-					startActivity(intent);
-					if (orig != RestaurantsActivity.class) {
-						a.finish();
-					}
-					a.overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
-				}
-			}, 300L); // start Activity after drawer closes
-		}
-	}
+    @Override
+    public void onListItemClick(ListView list, View view, int position, long id, int resId) {
+        super.onListItemClick(list, view, position, id, resId);
+        final NavigationDrawerActivity a = (NavigationDrawerActivity) getActivity();
+        a.getDrawerLayout().closeDrawer(START);
+        if (resId == R.id.feedback) { // special external case
+            final Intent intent = new Intent(ACTION_SENDTO,
+                    Uris.mailto(Collections.singletonList(getString(R.string.feedback_destination)),
+                            null, null, getString(R.string.feedback_subject), null));
+            if (Intents.hasActivity(a, intent)) {
+                view.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        startActivity(intent);
+                    }
+                }, 300L); // start Activity after drawer closes
+            }
+            return;
+        }
+        /* start associated Activity */
+        final Class<?> src = a.getClass();
+        Class<?> dest = ITEMS.inverse().get(resId);
+        if (dest != src) {
+            a.setOneTimeDrawerActionDelay(300L); // finish fade to dest before ActionBar restored
+            final Intent intent = new Intent(a, dest).addFlags(FLAG_ACTIVITY_CLEAR_TOP);
+            view.postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    startActivity(intent);
+                    if (src != RestaurantsActivity.class) {
+                        a.finish();
+                    }
+                    a.overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
+                }
+            }, 300L); // start Activity after drawer closes
+        }
+    }
 }

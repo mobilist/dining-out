@@ -23,10 +23,16 @@ import java.util.List;
  * Data from the server used during app initialisation.
  */
 public class Init {
-	/** Identifier for the user's app installation. */
-	public long installId;
-	/** Contacts the user is following or null. */
-	public List<User> users;
-	/** The user's restaurants or null. */
-	public List<Restaurant> restaurants;
+    /**
+     * Identifier for the user's app installation.
+     */
+    public long installId;
+    /**
+     * Contacts the user is following or null.
+     */
+    public List<User> users;
+    /**
+     * The user's restaurants or null.
+     */
+    public List<Restaurant> restaurants;
 }

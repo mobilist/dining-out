@@ -20,43 +20,49 @@ package net.sf.diningout.data;
 import net.sf.sprockets.util.Elements;
 
 public class Review extends Synced {
-	/** Global value for the restaurant this review was written for. */
-	public long restaurantId;
-	/** Global value for user that wrote this review or 0 for own review. */
-	public long userId;
-	public String comments;
-	public int rating;
-	/** UTC datetime in ISO format. */
-	public String writtenOn;
+    /**
+     * Global value for the restaurant this review was written for.
+     */
+    public long restaurantId;
+    /**
+     * Global value for user that wrote this review or 0 for own review.
+     */
+    public long userId;
+    public String comments;
+    public int rating;
+    /**
+     * UTC datetime in ISO format.
+     */
+    public String writtenOn;
 
-	/**
-	 * Reset the fields in this class (but not the parent) to their default values.
-	 */
-	public Review clear() {
-		restaurantId = 0L;
-		userId = 0L;
-		comments = null;
-		rating = 0;
-		writtenOn = null;
-		return this;
-	}
+    /**
+     * Reset the fields in this class (but not the parent) to their default values.
+     */
+    public Review clear() {
+        restaurantId = 0L;
+        userId = 0L;
+        comments = null;
+        rating = 0;
+        writtenOn = null;
+        return this;
+    }
 
-	public enum Type {
-		PRIVATE(1), GOOGLE(2);
+    public enum Type {
+        PRIVATE(1), GOOGLE(2);
 
-		public final int id;
+        public final int id;
 
-		Type(int id) {
-			this.id = id;
-		}
+        Type(int id) {
+            this.id = id;
+        }
 
-		/**
-		 * Get the type with the ID.
-		 * 
-		 * @return null if the ID is invalid
-		 */
-		public static Type get(int id) {
-			return Elements.get(values(), id - 1);
-		}
-	}
+        /**
+         * Get the type with the ID.
+         *
+         * @return null if the ID is invalid
+         */
+        public static Type get(int id) {
+            return Elements.get(values(), id - 1);
+        }
+    }
 }

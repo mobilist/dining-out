@@ -17,8 +17,6 @@
 
 package net.sf.diningout.undobar;
 
-import net.sf.diningout.data.Status;
-import net.sf.diningout.provider.Contract.Columns;
 import android.app.Activity;
 import android.content.ContentResolver;
 import android.content.ContentUris;
@@ -26,70 +24,71 @@ import android.content.ContentValues;
 import android.net.Uri;
 import android.os.Parcelable;
 
-import com.cocosw.undobar.UndoBarController;
 import com.cocosw.undobar.UndoBarController.UndoBar;
 import com.cocosw.undobar.UndoBarController.UndoListener;
+
+import net.sf.diningout.data.Status;
+import net.sf.diningout.provider.Contract.Columns;
 
 /**
  * Updates the status of objects, shows an {@link UndoBar}, and undoes the update on user request.
  */
 public class Undoer implements UndoListener {
-	private final ContentResolver mCr;
-	private final Uri mContentUri;
-	private final long[] mIds;
-	private final Status mUndo;
-	private final boolean mDirty;
+    private final ContentResolver mCr;
+    private final Uri mContentUri;
+    private final long[] mIds;
+    private final Status mUndo;
+    private final boolean mDirty;
 
-	/**
-	 * Show an {@link UndoBar} with the message, update the objects to the status, and revert to the
-	 * undo status on user request. The change will be synchronised with the server.
-	 */
-	public Undoer(Activity activity, CharSequence message, Uri contentUri, long[] ids,
-			Status update, Status undo) {
-		this(activity, message, contentUri, ids, update, undo, true);
-	}
+    /**
+     * Show an {@link UndoBar} with the message, update the objects to the status, and revert to the
+     * undo status on user request. The change will be synchronised with the server.
+     */
+    public Undoer(Activity activity, CharSequence message, Uri contentUri, long[] ids,
+                  Status update, Status undo) {
+        this(activity, message, contentUri, ids, update, undo, true);
+    }
 
-	/**
-	 * Show an {@link UndoBar} with the message, update the objects to the status, and revert to the
-	 * undo status on user request.
-	 * 
-	 * @param dirty
-	 *            false if the change does not need to be synchronised with the server
-	 */
-	public Undoer(Activity activity, CharSequence message, Uri contentUri, long[] ids,
-			Status update, Status undo, boolean dirty) {
-		mCr = activity.getContentResolver();
-		mContentUri = contentUri;
-		mIds = ids;
-		mUndo = undo;
-		mDirty = dirty;
-		update(update);
-		UndoBarController.show(activity, message, this);
-	}
+    /**
+     * Show an {@link UndoBar} with the message, update the objects to the status, and revert to the
+     * undo status on user request.
+     *
+     * @param dirty false if the change does not need to be synchronised with the server
+     */
+    public Undoer(Activity activity, CharSequence message, Uri contentUri, long[] ids,
+                  Status update, Status undo, boolean dirty) {
+        mCr = activity.getContentResolver();
+        mContentUri = contentUri;
+        mIds = ids;
+        mUndo = undo;
+        mDirty = dirty;
+        update(update);
+        new UndoBar(activity).message(message).listener(this).show();
+    }
 
-	/**
-	 * Update the objects to the status.
-	 */
-	private void update(Status status) {
-		ContentValues vals = new ContentValues(2);
-		vals.put(Columns.STATUS_ID, status.id);
-		if (mDirty) {
-			vals.put(Columns.DIRTY, 1);
-		}
-		for (long id : mIds) {
-			mCr.update(ContentUris.withAppendedId(mContentUri, id), vals, null, null);
-		}
-		onUpdate(mContentUri, mIds, status);
-	}
+    /**
+     * Update the objects to the status.
+     */
+    private void update(Status status) {
+        ContentValues vals = new ContentValues(2);
+        vals.put(Columns.STATUS_ID, status.id);
+        if (mDirty) {
+            vals.put(Columns.DIRTY, 1);
+        }
+        for (long id : mIds) {
+            mCr.update(ContentUris.withAppendedId(mContentUri, id), vals, null, null);
+        }
+        onUpdate(mContentUri, mIds, status);
+    }
 
-	/**
-	 * The objects have been updated to the status.
-	 */
-	protected void onUpdate(Uri contentUri, long[] ids, Status status) {
-	}
+    /**
+     * The objects have been updated to the status.
+     */
+    protected void onUpdate(Uri contentUri, long[] ids, Status status) {
+    }
 
-	@Override
-	public void onUndo(Parcelable token) {
-		update(mUndo);
-	}
+    @Override
+    public void onUndo(Parcelable token) {
+        update(mUndo);
+    }
 }

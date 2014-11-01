@@ -23,10 +23,16 @@ import java.util.List;
  * Changes from the server.
  */
 public class Syncing {
-	/** Any user changes or null. */
-	public List<Sync<User>> users;
-	/** Any restaurant changes or null. */
-	public List<Sync<Restaurant>> restaurants;
-	/** Any review changes or null. */
-	public List<Sync<Review>> reviews;
+    /**
+     * Any user changes or null.
+     */
+    public List<Sync<User>> users;
+    /**
+     * Any restaurant changes or null.
+     */
+    public List<Sync<Restaurant>> restaurants;
+    /**
+     * Any review changes or null.
+     */
+    public List<Sync<Review>> reviews;
 }

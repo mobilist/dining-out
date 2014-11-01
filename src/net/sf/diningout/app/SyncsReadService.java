@@ -17,52 +17,56 @@
 
 package net.sf.diningout.app;
 
-import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
-import static net.sf.diningout.data.Status.ACTIVE;
-import static net.sf.diningout.data.Status.INACTIVE;
-
-import java.util.Arrays;
-
-import net.sf.diningout.provider.Contract.Syncs;
 import android.app.IntentService;
 import android.content.ContentValues;
 import android.content.Intent;
 import android.os.Parcelable;
 
+import net.sf.diningout.provider.Contract.Syncs;
+
+import java.util.Arrays;
+
+import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
+import static net.sf.diningout.data.Status.ACTIVE;
+import static net.sf.diningout.data.Status.INACTIVE;
+
 /**
- * Marks all syncs as read. {@link #EXTRA_ACTIVITIES} and {@link #onStartCommand(Intent, int, int)
- * onStartCommand} will be removed after Android issue 41253 is fixed.
+ * Marks all syncs as read. {@link #EXTRA_ACTIVITIES} and
+ * {@link #onStartCommand(Intent, int, int) onStartCommand} will be removed after Android issue
+ * 41253 is fixed.
  */
 public class SyncsReadService extends IntentService {
-	/** Activities to start. */
-	public static final String EXTRA_ACTIVITIES = "intent.extra.ACTIVITIES";
-	private static final String TAG = SyncsReadService.class.getSimpleName();
+    /**
+     * Activities to start.
+     */
+    public static final String EXTRA_ACTIVITIES = "intent.extra.ACTIVITIES";
+    private static final String TAG = SyncsReadService.class.getSimpleName();
 
-	public SyncsReadService() {
-		super(TAG);
-	}
+    public SyncsReadService() {
+        super(TAG);
+    }
 
-	@Override
-	public int onStartCommand(Intent intent, int flags, int startId) {
-		if (intent != null) {
-			Parcelable[] activities = intent.getParcelableArrayExtra(EXTRA_ACTIVITIES);
-			if (activities != null) {
-				Intent[] intents = Arrays.copyOf(activities, activities.length, Intent[].class);
-				for (Intent i : intents) { // TaskStackBuilder in API 16 doesn't add to parents
-					i.addFlags(FLAG_ACTIVITY_NEW_TASK);
-				}
-				startActivities(intents);
-			}
-		}
-		return super.onStartCommand(intent, flags, startId);
-	}
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        if (intent != null) {
+            Parcelable[] activities = intent.getParcelableArrayExtra(EXTRA_ACTIVITIES);
+            if (activities != null) {
+                Intent[] intents = Arrays.copyOf(activities, activities.length, Intent[].class);
+                for (Intent i : intents) { // TaskStackBuilder in API 16 doesn't add to parents
+                    i.addFlags(FLAG_ACTIVITY_NEW_TASK);
+                }
+                startActivities(intents);
+            }
+        }
+        return super.onStartCommand(intent, flags, startId);
+    }
 
-	@Override
-	protected void onHandleIntent(Intent intent) {
-		ContentValues vals = new ContentValues(1);
-		vals.put(Syncs.STATUS_ID, INACTIVE.id);
-		String sel = Syncs.STATUS_ID + " = ?";
-		String[] args = { String.valueOf(ACTIVE.id) };
-		getContentResolver().update(Syncs.CONTENT_URI, vals, sel, args);
-	}
+    @Override
+    protected void onHandleIntent(Intent intent) {
+        ContentValues vals = new ContentValues(1);
+        vals.put(Syncs.STATUS_ID, INACTIVE.id);
+        String sel = Syncs.STATUS_ID + " = ?";
+        String[] args = {String.valueOf(ACTIVE.id)};
+        getContentResolver().update(Syncs.CONTENT_URI, vals, sel, args);
+    }
 }

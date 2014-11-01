@@ -23,11 +23,11 @@ import net.sf.sprockets.app.ui.NavigationDrawerActivity;
  * Fades out when finishing if not the root of a task.
  */
 public class BaseNavigationDrawerActivity extends NavigationDrawerActivity {
-	@Override
-	public void finish() {
-		super.finish();
-		if (!isTaskRoot()) {
-			overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
-		}
-	}
+    @Override
+    public void finish() {
+        super.finish();
+        if (!isTaskRoot()) {
+            overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
+        }
+    }
 }

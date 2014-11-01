@@ -17,25 +17,6 @@
 
 package net.sf.diningout.app.ui;
 
-import static android.content.Intent.ACTION_SEND;
-import static android.content.Intent.EXTRA_SUBJECT;
-import static android.content.Intent.EXTRA_TEXT;
-import static android.provider.BaseColumns._ID;
-import static net.sf.diningout.data.Status.ACTIVE;
-import static net.sf.diningout.data.Status.DELETED;
-import static net.sf.sprockets.database.sqlite.SQLite.millis;
-import static net.sf.sprockets.database.sqlite.SQLite.normalise;
-import icepick.Icicle;
-import net.sf.diningout.R;
-import net.sf.diningout.provider.Contract.Restaurants;
-import net.sf.diningout.undobar.Undoer;
-import net.sf.diningout.widget.RestaurantCursorAdapter;
-import net.sf.sprockets.app.ui.SprocketsFragment;
-import net.sf.sprockets.content.LocalCursorLoader;
-import net.sf.sprockets.content.Managers;
-import net.sf.sprockets.database.EasyCursor;
-import net.sf.sprockets.util.SparseArrays;
-import net.sf.sprockets.widget.SearchViews;
 import android.app.Activity;
 import android.app.LoaderManager.LoaderCallbacks;
 import android.content.CursorLoader;
@@ -61,315 +42,341 @@ import android.widget.GridView;
 import android.widget.SearchView;
 import android.widget.SearchView.OnQueryTextListener;
 import android.widget.ShareActionProvider;
-import butterknife.InjectView;
 
 import com.github.amlcurran.showcaseview.ShowcaseView.Builder;
 import com.github.amlcurran.showcaseview.targets.ActionItemTarget;
+
+import net.sf.diningout.R;
+import net.sf.diningout.provider.Contract.Restaurants;
+import net.sf.diningout.undobar.Undoer;
+import net.sf.diningout.widget.RestaurantCursorAdapter;
+import net.sf.sprockets.app.ui.SprocketsFragment;
+import net.sf.sprockets.content.LocalCursorLoader;
+import net.sf.sprockets.content.Managers;
+import net.sf.sprockets.database.EasyCursor;
+import net.sf.sprockets.util.SparseArrays;
+import net.sf.sprockets.widget.SearchViews;
+
+import butterknife.InjectView;
+import icepick.Icicle;
+
+import static android.content.Intent.ACTION_SEND;
+import static android.content.Intent.EXTRA_SUBJECT;
+import static android.content.Intent.EXTRA_TEXT;
+import static android.provider.BaseColumns._ID;
+import static net.sf.diningout.data.Status.ACTIVE;
+import static net.sf.diningout.data.Status.DELETED;
+import static net.sf.sprockets.database.sqlite.SQLite.millis;
+import static net.sf.sprockets.database.sqlite.SQLite.normalise;
 
 /**
  * Displays a list of the user's restaurants. Activities that attach this must implement
  * {@link Listener}.
  */
 public class RestaurantsFragment extends SprocketsFragment implements LoaderCallbacks<Cursor>,
-		OnItemClickListener {
-	/** Loader arg for the position of the selected sort option. */
-	private static final String SORT = "sort";
-	/** Loader arg for restaurant name to search for. */
-	private static final String SEARCH_QUERY = "search_query";
-	private static final String[] sShareFields = { Restaurants.NAME, Restaurants.VICINITY,
-			Restaurants.INTL_PHONE, Restaurants.URL };
+        OnItemClickListener {
+    /**
+     * Loader arg for the position of the selected sort option.
+     */
+    private static final String SORT = "sort";
+    /**
+     * Loader arg for restaurant name to search for.
+     */
+    private static final String SEARCH_QUERY = "search_query";
+    private static final String[] sShareFields = {Restaurants.NAME, Restaurants.VICINITY,
+            Restaurants.INTL_PHONE, Restaurants.URL};
 
-	@InjectView(R.id.list)
-	GridView mGrid;
-	@Icicle
-	Bundle mLoaderArgs;
-	private Listener mListener;
-	private SearchView mSearch;
-	private boolean mShowcaseInserted;
-	private ActionMode mActionMode;
-	private final Intent mShare = new Intent(ACTION_SEND).setType("text/plain");
+    @InjectView(R.id.list)
+    GridView mGrid;
+    @Icicle
+    Bundle mLoaderArgs;
+    private Listener mListener;
+    private SearchView mSearch;
+    private boolean mShowcaseInserted;
+    private ActionMode mActionMode;
+    private final Intent mShare = new Intent(ACTION_SEND).setType("text/plain");
 
-	@Override
-	public void onAttach(Activity activity) {
-		super.onAttach(activity);
-		mListener = (Listener) activity;
-	}
+    @Override
+    public void onAttach(Activity activity) {
+        super.onAttach(activity);
+        mListener = (Listener) activity;
+    }
 
-	@Override
-	public void onCreate(Bundle savedInstanceState) {
-		super.onCreate(savedInstanceState);
-		getActivity().getActionBar().setIcon(R.drawable.logo); // expanded SearchView uses icon
-		setHasOptionsMenu(true);
-	}
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        getActivity().getActionBar().setIcon(R.drawable.logo); // expanded SearchView uses icon
+        setHasOptionsMenu(true);
+    }
 
-	@Override
-	public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle state) {
-		return inflater.inflate(R.layout.restaurants_fragment, container, false);
-	}
+    @Override
+    public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle state) {
+        return inflater.inflate(R.layout.restaurants_fragment, container, false);
+    }
 
-	@Override
-	public void onViewCreated(View view, Bundle savedInstanceState) {
-		super.onViewCreated(view, savedInstanceState);
-		mGrid.setAdapter(new RestaurantCursorAdapter(mGrid));
-		mGrid.setOnItemClickListener(this);
-		mGrid.setMultiChoiceModeListener(new ChoiceListener());
-	}
+    @Override
+    public void onViewCreated(View view, Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+        mGrid.setAdapter(new RestaurantCursorAdapter(mGrid));
+        mGrid.setOnItemClickListener(this);
+        mGrid.setMultiChoiceModeListener(new ChoiceListener());
+    }
 
-	@Override
-	public void onActivityCreated(Bundle savedInstanceState) {
-		super.onActivityCreated(savedInstanceState);
-		getLoaderManager().initLoader(0, null, this);
-	}
+    @Override
+    public void onActivityCreated(Bundle savedInstanceState) {
+        super.onActivityCreated(savedInstanceState);
+        getLoaderManager().initLoader(0, null, this);
+    }
 
-	@Override
-	public Loader<Cursor> onCreateLoader(int id, Bundle args) {
-		mLoaderArgs = args;
-		CursorLoader loader = null;
-		final String[] proj = { _ID, Restaurants.NAME, Restaurants.VICINITY,
-				Restaurants.INTL_PHONE, Restaurants.URL, Restaurants.RATING };
-		StringBuilder sel = new StringBuilder(Restaurants.STATUS_ID).append(" = ?");
-		String[] selArgs;
-		String order = null;
-		String searchQuery = args != null ? args.getString(SEARCH_QUERY) : null;
-		if (!TextUtils.isEmpty(searchQuery)) {
-			sel.append(" AND ").append(Restaurants.NORMALISED_NAME).append(" LIKE ?");
-			String filter = '%' + normalise(searchQuery) + '%';
-			selArgs = new String[] { String.valueOf(ACTIVE.id), filter, filter.substring(1) };
-			order = Restaurants.NORMALISED_NAME + " LIKE ? DESC, " + Restaurants.NAME;
-		} else {
-			selArgs = new String[] { String.valueOf(ACTIVE.id) };
-			switch (args != null ? args.getInt(SORT) : 0) {
-			case 0:
-				order = Restaurants.NAME + " = '', " + Restaurants.NAME; // placeholders at end
-				break;
-			case 1:
-				proj[proj.length - 1] = millis(Restaurants.LAST_VISIT_ON);
-				order = Restaurants.LAST_VISIT_ON;
-				break;
-			case 2:
-				order = Restaurants.DISTANCE + " IS NULL, " + Restaurants.DISTANCE;
-				loader = new LocalCursorLoader(getActivity(), Restaurants.CONTENT_URI, proj,
-						sel.toString(), selArgs, order) {
-					@Override
-					protected void onLocation(Location location) {
-						proj[proj.length - 1] = Restaurants.distance(location);
-					}
-				};
-				break;
-			case 3:
-				order = Restaurants.RATING + " DESC";
-				break;
-			}
-		}
-		return loader != null ? loader : new CursorLoader(getActivity(), Restaurants.CONTENT_URI,
-				proj, sel.toString(), selArgs, order);
-	}
+    @Override
+    public Loader<Cursor> onCreateLoader(int id, Bundle args) {
+        mLoaderArgs = args;
+        CursorLoader loader = null;
+        final String[] proj = {_ID, Restaurants.NAME, Restaurants.VICINITY,
+                Restaurants.INTL_PHONE, Restaurants.URL, Restaurants.RATING};
+        StringBuilder sel = new StringBuilder(Restaurants.STATUS_ID).append(" = ?");
+        String[] selArgs;
+        String order = null;
+        String searchQuery = args != null ? args.getString(SEARCH_QUERY) : null;
+        if (!TextUtils.isEmpty(searchQuery)) {
+            sel.append(" AND ").append(Restaurants.NORMALISED_NAME).append(" LIKE ?");
+            String filter = '%' + normalise(searchQuery) + '%';
+            selArgs = new String[]{String.valueOf(ACTIVE.id), filter, filter.substring(1)};
+            order = Restaurants.NORMALISED_NAME + " LIKE ? DESC, " + Restaurants.NAME;
+        } else {
+            selArgs = new String[]{String.valueOf(ACTIVE.id)};
+            switch (args != null ? args.getInt(SORT) : 0) {
+                case 0:
+                    order = Restaurants.NAME + " = '', " + Restaurants.NAME; // placeholders at end
+                    break;
+                case 1:
+                    proj[proj.length - 1] = millis(Restaurants.LAST_VISIT_ON);
+                    order = Restaurants.LAST_VISIT_ON;
+                    break;
+                case 2:
+                    order = Restaurants.DISTANCE + " IS NULL, " + Restaurants.DISTANCE;
+                    loader = new LocalCursorLoader(getActivity(), Restaurants.CONTENT_URI, proj,
+                            sel.toString(), selArgs, order) {
+                        @Override
+                        protected void onLocation(Location location) {
+                            proj[proj.length - 1] = Restaurants.distance(location);
+                        }
+                    };
+                    break;
+                case 3:
+                    order = Restaurants.RATING + " DESC";
+                    break;
+            }
+        }
+        return loader != null ? loader : new CursorLoader(getActivity(), Restaurants.CONTENT_URI,
+                proj, sel.toString(), selArgs, order);
+    }
 
-	@Override
-	public void onLoadFinished(Loader<Cursor> loader, Cursor data) {
-		if (mGrid != null) {
-			((CursorAdapter) mGrid.getAdapter()).swapCursor(new EasyCursor(data));
-			updateActionMode();
-			if (!mShowcaseInserted && data.getCount() == 0) {
-				if (mLoaderArgs == null || TextUtils.isEmpty(mLoaderArgs.getString(SEARCH_QUERY))) {
-					Activity a = getActivity();
-					new Builder(a, true).setTarget(new ActionItemTarget(a, R.id.add))
-							.setContentTitle(R.string.restaurants_showcase_title)
-							.setContentText(R.string.restaurants_showcase_detail).build();
-					mShowcaseInserted = true; // guard against multiple loads on config change
-				}
-			}
-		}
-	}
+    @Override
+    public void onLoadFinished(Loader<Cursor> loader, Cursor data) {
+        if (mGrid != null) {
+            ((CursorAdapter) mGrid.getAdapter()).swapCursor(new EasyCursor(data));
+            updateActionMode();
+            if (!mShowcaseInserted && data.getCount() == 0) {
+                if (mLoaderArgs == null || TextUtils.isEmpty(mLoaderArgs.getString(SEARCH_QUERY))) {
+                    Activity a = getActivity();
+                    new Builder(a, true).setTarget(new ActionItemTarget(a, R.id.add))
+                            .setContentTitle(R.string.restaurants_showcase_title)
+                            .setContentText(R.string.restaurants_showcase_detail).build();
+                    mShowcaseInserted = true; // guard against multiple loads on config change
+                }
+            }
+        }
+    }
 
-	/**
-	 * Update the ActionMode title and prepare the share Intent.
-	 */
-	private void updateActionMode() {
-		if (mActionMode != null) {
-			int count = mGrid.getCheckedItemCount();
-			if (count > 0) {
-				mActionMode.setTitle(getString(R.string.n_selected, count));
-				if (count > 1) {
-					mShare.putExtra(EXTRA_SUBJECT, getString(R.string.restaurants_share));
-				}
-				StringBuilder text = new StringBuilder(192 * count);
-				for (int i : SparseArrays.trueKeys(mGrid.getCheckedItemPositions())) {
-					if (text.length() > 0) { // separate sequential restaurants
-						text.append("\n");
-					}
-					EasyCursor c = (EasyCursor) mGrid.getItemAtPosition(i);
-					for (String field : sShareFields) {
-						String detail = c.getString(field);
-						if (count == 1 && field == Restaurants.NAME) {
-							mShare.putExtra(EXTRA_SUBJECT, detail);
-						}
-						if (!TextUtils.isEmpty(detail)) {
-							if (text.length() > 0) {
-								text.append("\n");
-							}
-							text.append(detail);
-						}
-					}
-				}
-				mShare.putExtra(EXTRA_TEXT, text.toString());
-			}
-		}
-	}
+    /**
+     * Update the ActionMode title and prepare the share Intent.
+     */
+    private void updateActionMode() {
+        if (mActionMode != null) {
+            int count = mGrid.getCheckedItemCount();
+            if (count > 0) {
+                mActionMode.setTitle(getString(R.string.n_selected, count));
+                if (count > 1) {
+                    mShare.putExtra(EXTRA_SUBJECT, getString(R.string.restaurants_share));
+                }
+                StringBuilder text = new StringBuilder(192 * count);
+                for (int i : SparseArrays.trueKeys(mGrid.getCheckedItemPositions())) {
+                    if (text.length() > 0) { // separate sequential restaurants
+                        text.append("\n");
+                    }
+                    EasyCursor c = (EasyCursor) mGrid.getItemAtPosition(i);
+                    for (String field : sShareFields) {
+                        String detail = c.getString(field);
+                        if (count == 1 && field == Restaurants.NAME) {
+                            mShare.putExtra(EXTRA_SUBJECT, detail);
+                        }
+                        if (!TextUtils.isEmpty(detail)) {
+                            if (text.length() > 0) {
+                                text.append("\n");
+                            }
+                            text.append(detail);
+                        }
+                    }
+                }
+                mShare.putExtra(EXTRA_TEXT, text.toString());
+            }
+        }
+    }
 
-	@Override
-	public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
-		super.onCreateOptionsMenu(menu, inflater);
-		if (mListener.onRestaurantsOptionsMenu()) {
-			Activity a = getActivity();
-			inflater.inflate(R.menu.restaurants, menu);
-			MenuItem item = menu.findItem(R.id.search);
-			mSearch = SearchViews.setBackground((SearchView) item.getActionView(),
-					R.drawable.textfield_searchview);
-			mSearch.setSearchableInfo(Managers.search(a).getSearchableInfo(a.getComponentName()));
-			mSearch.setOnQueryTextListener(new SearchListener());
-			restoreSearchView(item);
-		}
-	}
+    @Override
+    public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
+        super.onCreateOptionsMenu(menu, inflater);
+        if (mListener.onRestaurantsOptionsMenu()) {
+            Activity a = getActivity();
+            inflater.inflate(R.menu.restaurants, menu);
+            MenuItem item = menu.findItem(R.id.search);
+            mSearch = SearchViews.setBackground((SearchView) item.getActionView(),
+                    R.drawable.textfield_searchview);
+            mSearch.setSearchableInfo(Managers.search(a).getSearchableInfo(a.getComponentName()));
+            mSearch.setOnQueryTextListener(new SearchListener());
+            restoreSearchView(item);
+        }
+    }
 
-	@Override
-	public boolean onOptionsItemSelected(MenuItem item) {
-		switch (item.getItemId()) {
-		case R.id.add:
-			startActivity(new Intent(getActivity(), RestaurantAddActivity.class));
-			return true;
-		}
-		return super.onOptionsItemSelected(item);
-	}
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        switch (item.getItemId()) {
+            case R.id.add:
+                startActivity(new Intent(getActivity(), RestaurantAddActivity.class));
+                return true;
+        }
+        return super.onOptionsItemSelected(item);
+    }
 
-	/**
-	 * Sort the restaurants by the sort option.
-	 */
-	void sort(int position) {
-		initLoaderArgs().putInt(SORT, position);
-		mLoaderArgs.remove(SEARCH_QUERY);
-		getLoaderManager().restartLoader(0, mLoaderArgs, this);
-		mGrid.smoothScrollToPosition(0);
-	}
+    /**
+     * Sort the restaurants by the sort option.
+     */
+    void sort(int position) {
+        initLoaderArgs().putInt(SORT, position);
+        mLoaderArgs.remove(SEARCH_QUERY);
+        getLoaderManager().restartLoader(0, mLoaderArgs, this);
+        mGrid.smoothScrollToPosition(0);
+    }
 
-	/**
-	 * Initialise {@link #mLoaderArgs} if it isn't already.
-	 */
-	private Bundle initLoaderArgs() {
-		if (mLoaderArgs == null) {
-			mLoaderArgs = new Bundle(2);
-		}
-		return mLoaderArgs;
-	}
+    /**
+     * Initialise {@link #mLoaderArgs} if it isn't already.
+     */
+    private Bundle initLoaderArgs() {
+        if (mLoaderArgs == null) {
+            mLoaderArgs = new Bundle(2);
+        }
+        return mLoaderArgs;
+    }
 
-	@Override
-	public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-		if (mSearch != null) {
-			mSearch.clearFocus(); // hiding input method later causes placeholder Drawable to resize
-		}
-		mListener.onRestaurantClick(view, id);
-	}
+    @Override
+    public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+        if (mSearch != null) {
+            mSearch.clearFocus(); // hiding input method later causes placeholder Drawable to resize
+        }
+        mListener.onRestaurantClick(view, id);
+    }
 
-	@Override
-	public AbsListView getAbsListView() {
-		return mGrid;
-	}
+    @Override
+    public AbsListView getAbsListView() {
+        return mGrid;
+    }
 
-	@Override
-	public void onLoaderReset(Loader<Cursor> loader) {
-		if (mGrid != null) {
-			((CursorAdapter) mGrid.getAdapter()).swapCursor(null);
-		}
-	}
+    @Override
+    public void onLoaderReset(Loader<Cursor> loader) {
+        if (mGrid != null) {
+            ((CursorAdapter) mGrid.getAdapter()).swapCursor(null);
+        }
+    }
 
-	@Override
-	public void onDetach() {
-		super.onDetach();
-		mListener = null;
-	}
+    @Override
+    public void onDetach() {
+        super.onDetach();
+        mListener = null;
+    }
 
-	/**
-	 * Receives notifications for {@link RestaurantsFragment} events.
-	 */
-	interface Listener {
-		/**
-		 * The restaurants options menu is being created. Return true to add the menu items or false
-		 * to skip them.
-		 */
-		boolean onRestaurantsOptionsMenu();
+    /**
+     * Receives notifications for {@link RestaurantsFragment} events.
+     */
+    interface Listener {
+        /**
+         * The restaurants options menu is being created. Return true to add the menu items or false
+         * to skip them.
+         */
+        boolean onRestaurantsOptionsMenu();
 
-		/**
-		 * Restaurants are being searched for names that match the query.
-		 */
-		void onRestaurantsSearch(String query);
+        /**
+         * Restaurants are being searched for names that match the query.
+         */
+        void onRestaurantsSearch(String query);
 
-		/**
-		 * The restaurant was clicked.
-		 */
-		void onRestaurantClick(View view, long id);
-	}
+        /**
+         * The restaurant was clicked.
+         */
+        void onRestaurantClick(View view, long id);
+    }
 
-	/**
-	 * Filters the restaurants by name as the search query changes.
-	 */
-	private class SearchListener implements OnQueryTextListener {
-		@Override
-		public boolean onQueryTextChange(String newText) {
-			mListener.onRestaurantsSearch(newText);
-			initLoaderArgs().putString(SEARCH_QUERY, newText);
-			getLoaderManager().restartLoader(0, mLoaderArgs, RestaurantsFragment.this);
-			mGrid.smoothScrollToPosition(0);
-			return false;
-		}
+    /**
+     * Filters the restaurants by name as the search query changes.
+     */
+    private class SearchListener implements OnQueryTextListener {
+        @Override
+        public boolean onQueryTextChange(String newText) {
+            mListener.onRestaurantsSearch(newText);
+            initLoaderArgs().putString(SEARCH_QUERY, newText);
+            getLoaderManager().restartLoader(0, mLoaderArgs, RestaurantsFragment.this);
+            mGrid.smoothScrollToPosition(0);
+            return false;
+        }
 
-		@Override
-		public boolean onQueryTextSubmit(String query) {
-			mSearch.clearFocus();
-			return true;
-		}
-	}
+        @Override
+        public boolean onQueryTextSubmit(String query) {
+            mSearch.clearFocus();
+            return true;
+        }
+    }
 
-	/**
-	 * Manages the CAB while restaurants are selected.
-	 */
-	private class ChoiceListener implements MultiChoiceModeListener {
-		@Override
-		public boolean onCreateActionMode(ActionMode mode, Menu menu) {
-			mActionMode = mode;
-			mode.getMenuInflater().inflate(R.menu.restaurants_cab, menu);
-			ShareActionProvider share = (ShareActionProvider) menu.findItem(R.id.share)
-					.getActionProvider();
-			share.setShareHistoryFileName("restaurant_share_history.xml");
-			share.setShareIntent(mShare);
-			return true;
-		}
+    /**
+     * Manages the CAB while restaurants are selected.
+     */
+    private class ChoiceListener implements MultiChoiceModeListener {
+        @Override
+        public boolean onCreateActionMode(ActionMode mode, Menu menu) {
+            mActionMode = mode;
+            mode.getMenuInflater().inflate(R.menu.restaurants_cab, menu);
+            ShareActionProvider share = (ShareActionProvider) menu.findItem(R.id.share)
+                    .getActionProvider();
+            share.setShareHistoryFileName("restaurant_share_history.xml");
+            share.setShareIntent(mShare);
+            return true;
+        }
 
-		@Override
-		public boolean onPrepareActionMode(ActionMode mode, Menu menu) {
-			return false;
-		}
+        @Override
+        public boolean onPrepareActionMode(ActionMode mode, Menu menu) {
+            return false;
+        }
 
-		@Override
-		public void onItemCheckedStateChanged(ActionMode mode, int pos, long id, boolean checked) {
-			updateActionMode();
-		}
+        @Override
+        public void onItemCheckedStateChanged(ActionMode mode, int pos, long id, boolean checked) {
+            updateActionMode();
+        }
 
-		@Override
-		public boolean onActionItemClicked(ActionMode mode, MenuItem item) {
-			switch (item.getItemId()) {
-			case R.id.delete:
-				long[] ids = mGrid.getCheckedItemIds();
-				new Undoer(getActivity(), getString(R.string.n_deleted, ids.length),
-						Restaurants.CONTENT_URI, ids, DELETED, ACTIVE);
-				mode.finish(); // ensure mActionMode is null before updateActionMode is called
-				return true;
-			}
-			return false;
-		}
+        @Override
+        public boolean onActionItemClicked(ActionMode mode, MenuItem item) {
+            switch (item.getItemId()) {
+                case R.id.delete:
+                    long[] ids = mGrid.getCheckedItemIds();
+                    new Undoer(getActivity(), getString(R.string.n_deleted, ids.length),
+                            Restaurants.CONTENT_URI, ids, DELETED, ACTIVE);
+                    mode.finish(); // ensure mActionMode is null before updateActionMode is called
+                    return true;
+            }
+            return false;
+        }
 
-		@Override
-		public void onDestroyActionMode(ActionMode mode) {
-			mActionMode = null;
-		}
-	}
+        @Override
+        public void onDestroyActionMode(ActionMode mode) {
+            mActionMode = null;
+        }
+    }
 }

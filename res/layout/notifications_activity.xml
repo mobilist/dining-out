@@ -5,10 +5,10 @@
                                         android:layout_height="match_parent">
 
     <fragment
-        android:id="@+id/settings"
+        android:id="@+id/notifications"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        class="net.sf.diningout.app.ui.SettingsActivity$SettingsFragment"/>
+        class="net.sf.diningout.app.ui.NotificationsFragment"/>
 
     <include layout="@layout/navigation_drawer"/>
 

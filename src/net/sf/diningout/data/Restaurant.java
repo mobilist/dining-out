@@ -18,25 +18,25 @@
 package net.sf.diningout.data;
 
 public class Restaurant extends Synced {
-	public String googleId;
-	public String googleReference;
-	public String name;
-	public String address;
-	public String phone;
-	public String url;
-	public String notes;
+    public String googleId;
+    public String googleReference;
+    public String name;
+    public String address;
+    public String phone;
+    public String url;
+    public String notes;
 
-	/**
-	 * Reset the fields in this class (but not the parent) to their default values.
-	 */
-	public Restaurant clear() {
-		googleId = null;
-		googleReference = null;
-		name = null;
-		address = null;
-		phone = null;
-		url = null;
-		notes = null;
-		return this;
-	}
+    /**
+     * Reset the fields in this class (but not the parent) to their default values.
+     */
+    public Restaurant clear() {
+        googleId = null;
+        googleReference = null;
+        name = null;
+        address = null;
+        phone = null;
+        url = null;
+        notes = null;
+        return this;
+    }
 }

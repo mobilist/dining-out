@@ -18,17 +18,21 @@
 package net.sf.diningout.data;
 
 public class User extends Synced {
-	/** Base64 encoded SHA-512 hash of the user's email address. */
-	public String emailHash;
-	/** True if the app user is following this user. */
-	public boolean isFollowing;
+    /**
+     * Base64 encoded SHA-512 hash of the user's email address.
+     */
+    public String emailHash;
+    /**
+     * True if the app user is following this user.
+     */
+    public boolean isFollowing;
 
-	/**
-	 * Reset the fields in this class (but not the parent) to their default values.
-	 */
-	public User clear() {
-		emailHash = null;
-		isFollowing = false;
-		return this;
-	}
+    /**
+     * Reset the fields in this class (but not the parent) to their default values.
+     */
+    public User clear() {
+        emailHash = null;
+        isFollowing = false;
+        return this;
+    }
 }

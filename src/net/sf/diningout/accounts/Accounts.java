@@ -17,35 +17,39 @@
 
 package net.sf.diningout.accounts;
 
-import static com.google.android.gms.auth.GoogleAuthUtil.GOOGLE_ACCOUNT_TYPE;
-import static net.sf.sprockets.app.SprocketsApplication.context;
-import net.sf.diningout.preference.Keys;
-import net.sf.sprockets.preference.Prefs;
 import android.accounts.Account;
 import android.text.TextUtils;
+
+import net.sf.diningout.preference.Keys;
+import net.sf.sprockets.preference.Prefs;
+
+import static com.google.android.gms.auth.GoogleAuthUtil.GOOGLE_ACCOUNT_TYPE;
+import static net.sf.sprockets.app.SprocketsApplication.context;
 
 /**
  * Utility methods for working with Accounts.
  */
 public class Accounts {
-	/** Selected account. */
-	private static Account sAccount;
+    /**
+     * Selected account.
+     */
+    private static Account sAccount;
 
-	private Accounts() {
-	}
+    private Accounts() {
+    }
 
-	/**
-	 * Get the selected account.
-	 * 
-	 * @return null if no account is selected
-	 */
-	public static Account selected() {
-		if (sAccount == null) {
-			String name = Prefs.getString(context(), Keys.ACCOUNT_NAME);
-			if (!TextUtils.isEmpty(name)) {
-				sAccount = new Account(name, GOOGLE_ACCOUNT_TYPE);
-			}
-		}
-		return sAccount;
-	}
+    /**
+     * Get the selected account.
+     *
+     * @return null if no account is selected
+     */
+    public static Account selected() {
+        if (sAccount == null) {
+            String name = Prefs.getString(context(), Keys.ACCOUNT_NAME);
+            if (!TextUtils.isEmpty(name)) {
+                sAccount = new Account(name, GOOGLE_ACCOUNT_TYPE);
+            }
+        }
+        return sAccount;
+    }
 }

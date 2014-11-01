@@ -21,13 +21,21 @@ package net.sf.diningout.data;
  * Object that is synchronised with the server.
  */
 public abstract class Synced {
-	/** ID on a device or 0 if not available. */
-	public long localId;
-	/** ID on the server or 0 if not available. */
-	public long globalId;
-	public Status status;
-	/** True if this needs to be synchronised with the server. */
-	public boolean dirty;
-	/** Number of the change that requires synchronising this with the server. */
-	public long version;
+    /**
+     * ID on a device or 0 if not available.
+     */
+    public long localId;
+    /**
+     * ID on the server or 0 if not available.
+     */
+    public long globalId;
+    public Status status;
+    /**
+     * True if this needs to be synchronised with the server.
+     */
+    public boolean dirty;
+    /**
+     * Number of the change that requires synchronising this with the server.
+     */
+    public long version;
 }

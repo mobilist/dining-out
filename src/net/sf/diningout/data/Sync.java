@@ -22,57 +22,66 @@ import net.sf.sprockets.util.Elements;
 /**
  * Action taken by someone (or the system) on an object that should be synchronised across users or
  * devices.
- * 
- * @param <T>
- *            type of object that was acted on
+ *
+ * @param <T> type of object that was acted on
  */
 public class Sync<T extends Synced> {
-	/** ID on the server. */
-	public long globalId;
-	/** Global value for user that performed this action or 0 for own or system actions. */
-	public long userId;
-	public T object;
-	public Action action;
-	/** UTC datetime in ISO format. */
-	public String actionOn;
+    /**
+     * ID on the server.
+     */
+    public long globalId;
+    /**
+     * Global value for user that performed this action or 0 for own or system actions.
+     */
+    public long userId;
+    public T object;
+    public Action action;
+    /**
+     * UTC datetime in ISO format.
+     */
+    public String actionOn;
 
-	/** Objects that can be synchronised. */
-	public enum Type {
-		USER(1), RESTAURANT(2), VISIT(3), REVIEW(4), RESTAURANT_PHOTO(5);
+    /**
+     * Objects that can be synchronised.
+     */
+    public enum Type {
+        USER(1), RESTAURANT(2), VISIT(3), REVIEW(4), RESTAURANT_PHOTO(5);
 
-		public final int id;
+        public final int id;
 
-		Type(int id) {
-			this.id = id;
-		}
+        Type(int id) {
+            this.id = id;
+        }
 
-		/**
-		 * Get the type with the ID.
-		 * 
-		 * @return null if the ID is invalid
-		 */
-		public static Type get(int id) {
-			return Elements.get(values(), id - 1);
-		}
-	}
+        /**
+         * Get the type with the ID.
+         *
+         * @return null if the ID is invalid
+         */
+        public static Type get(int id) {
+            return Elements.get(values(), id - 1);
+        }
+    }
 
-	/** Changes to objects that can be synchronised. */
-	public enum Action {
-		INSERT(1), UPDATE(2), DELETE(3), MERGE(4);
+    /**
+     * Changes to objects that can be synchronised.
+     */
+    public enum Action {
+        INSERT(1), UPDATE(2), DELETE(3), MERGE(4);
 
-		public final int id;
+        public final int id;
 
-		Action(int id) {
-			this.id = id;
-		}
+        Action(int id) {
+            this.id = id;
+        }
 
-		/**
-		 * Get the action with the ID.
-		 * 
-		 * @return null if the ID is invalid
-		 */
-		public static Action get(int id) {
-			return Elements.get(values(), id - 1);
-		}
-	}
+        /**
+         * Get the action with the ID.
+         *
+         * @return null if the ID is invalid
+         */
+        public static Action get(int id) {
+            return Elements.get(values(), id - 1);
+        }
+    }
 }

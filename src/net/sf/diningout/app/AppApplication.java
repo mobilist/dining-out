@@ -17,10 +17,12 @@
 
 package net.sf.diningout.app;
 
-import static net.sf.diningout.preference.Keys.CLOUD_ID;
-import static net.sf.diningout.provider.Contract.AUTHORITY;
+import android.content.ContentResolver;
+import android.os.Bundle;
+import android.preference.PreferenceManager;
 
-import java.io.File;
+import com.google.android.gms.analytics.GoogleAnalytics;
+import com.google.android.gms.analytics.Tracker;
 
 import net.sf.diningout.R;
 import net.sf.diningout.accounts.Accounts;
@@ -29,46 +31,48 @@ import net.sf.sprockets.preference.Prefs;
 
 import org.apache.commons.io.FileUtils;
 
-import android.content.ContentResolver;
-import android.os.Bundle;
-import android.preference.PreferenceManager;
+import java.io.File;
 
-import com.google.android.gms.analytics.GoogleAnalytics;
-import com.google.android.gms.analytics.Tracker;
+import static net.sf.diningout.preference.Keys.ALLOW_ANALYTICS;
+import static net.sf.diningout.preference.Keys.CLOUD_ID;
+import static net.sf.diningout.provider.Contract.AUTHORITY;
 
 /**
  * Provides services and performs application update tasks.
  */
 public class AppApplication extends VersionedApplication {
-	private static Tracker sTracker;
+    private static Tracker sTracker;
 
-	@Override
-	public void onCreate() {
-		super.onCreate();
-		GoogleAnalytics ga = GoogleAnalytics.getInstance(this);
-		ga.enableAutoActivityReports(this);
-		sTracker = ga.newTracker(R.xml.tracker);
-	}
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        GoogleAnalytics ga = GoogleAnalytics.getInstance(this);
+        ga.enableAutoActivityReports(this);
+        if (!Prefs.getBoolean(this, ALLOW_ANALYTICS)) {
+            ga.setAppOptOut(true);
+        }
+        sTracker = ga.newTracker(R.xml.tracker);
+    }
 
-	/**
-	 * Get the application's Google Analytics tracker.
-	 */
-	public static Tracker tracker() {
-		return sTracker;
-	}
+    /**
+     * Get the application's Google Analytics tracker.
+     */
+    public static Tracker tracker() {
+        return sTracker;
+    }
 
-	@Override
-	public void onVersionChanged(int oldCode, String oldName, int newCode, String newName) {
-		PreferenceManager.setDefaultValues(this, R.xml.preferences, true);
-		if (Prefs.contains(this, CLOUD_ID)) { // need to re-register
-			Prefs.remove(this, CLOUD_ID);
-			ContentResolver.requestSync(Accounts.selected(), AUTHORITY, new Bundle());
-		}
-		if (oldCode < 100) { // delete pre-1.0.0 restaurant images
-			File file = getExternalFilesDir(null);
-			if (file != null) {
-				FileUtils.deleteQuietly(new File(file, "images"));
-			}
-		}
-	}
+    @Override
+    public void onVersionChanged(int oldCode, String oldName, int newCode, String newName) {
+        PreferenceManager.setDefaultValues(this, R.xml.preferences, true);
+        if (Prefs.contains(this, CLOUD_ID)) { // need to re-register
+            Prefs.remove(this, CLOUD_ID);
+            ContentResolver.requestSync(Accounts.selected(), AUTHORITY, new Bundle());
+        }
+        if (oldCode < 100) { // delete pre-1.0.0 restaurant images
+            File file = getExternalFilesDir(null);
+            if (file != null) {
+                FileUtils.deleteQuietly(new File(file, "images"));
+            }
+        }
+    }
 }

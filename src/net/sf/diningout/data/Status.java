@@ -23,20 +23,20 @@ import net.sf.sprockets.util.Elements;
  * Status of an object.
  */
 public enum Status {
-	ACTIVE(1), INACTIVE(2), DELETED(3), MERGED(4);
+    ACTIVE(1), INACTIVE(2), DELETED(3), MERGED(4);
 
-	public final int id;
+    public final int id;
 
-	Status(int id) {
-		this.id = id;
-	}
+    Status(int id) {
+        this.id = id;
+    }
 
-	/**
-	 * Get the status with the ID.
-	 * 
-	 * @return null if the ID is invalid
-	 */
-	public static Status get(int id) {
-		return Elements.get(values(), id - 1);
-	}
+    /**
+     * Get the status with the ID.
+     *
+     * @return null if the ID is invalid
+     */
+    public static Status get(int id) {
+        return Elements.get(values(), id - 1);
+    }
 }

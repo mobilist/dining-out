@@ -17,31 +17,33 @@
 
 package net.sf.diningout.app.ui;
 
-import net.sf.diningout.R;
-import net.sf.sprockets.preference.SprocketsPreferenceFragment;
 import android.os.Bundle;
 import android.support.v4.widget.DrawerLayout;
+
+import net.sf.diningout.R;
+import net.sf.sprockets.preference.SprocketsPreferenceFragment;
+
 import butterknife.InjectView;
 
 /**
  * Displays app settings.
  */
 public class SettingsActivity extends BaseNavigationDrawerActivity {
-	@InjectView(R.id.root)
-	DrawerLayout mDrawerLayout;
+    @InjectView(R.id.root)
+    DrawerLayout mDrawerLayout;
 
-	@Override
-	protected void onCreate(Bundle savedInstanceState) {
-		super.onCreate(savedInstanceState);
-		setContentView(R.layout.settings_activity);
-		setDrawerLayout(mDrawerLayout);
-	}
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.settings_activity);
+        setDrawerLayout(mDrawerLayout);
+    }
 
-	public static class SettingsFragment extends SprocketsPreferenceFragment {
-		@Override
-		public void onCreate(Bundle savedInstanceState) {
-			super.onCreate(savedInstanceState);
-			addPreferencesFromResource(R.xml.preferences);
-		}
-	}
+    public static class SettingsFragment extends SprocketsPreferenceFragment {
+        @Override
+        public void onCreate(Bundle savedInstanceState) {
+            super.onCreate(savedInstanceState);
+            addPreferencesFromResource(R.xml.preferences);
+        }
+    }
 }

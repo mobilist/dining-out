@@ -17,36 +17,39 @@
 
 package net.sf.diningout.widget;
 
-import net.sf.diningout.R;
-import net.sf.diningout.provider.Contract.RestaurantPhotos;
-import net.sf.sprockets.google.Place;
-import net.sf.sprockets.widget.GooglePlacesAdapter;
-import net.sf.sprockets.widget.GridCard;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.GridView;
 
+import net.sf.diningout.R;
+import net.sf.diningout.provider.Contract.RestaurantPhotos;
+import net.sf.sprockets.google.Place;
+import net.sf.sprockets.widget.GooglePlacesAdapter;
+import net.sf.sprockets.widget.GridCard;
+
 /**
  * Translates {@link Place}s to Views.
  */
 public class RestaurantPlacesAdapter extends GooglePlacesAdapter {
-	/** Restaurant photo is resized according to these measurements. */
-	private final GridCard mCard;
+    /**
+     * Restaurant photo is resized according to these measurements.
+     */
+    private final GridCard mCard;
 
-	public RestaurantPlacesAdapter(GridView view) {
-		mCard = new GridCard(view);
-	}
+    public RestaurantPlacesAdapter(GridView view) {
+        mCard = new GridCard(view);
+    }
 
-	@Override
-	public View getView(int position, Place place, View view, ViewGroup parent) {
-		if (view == null) {
-			view = LayoutInflater.from(parent.getContext()).inflate(R.layout.restaurants_adapter,
-					parent, false);
-		}
-		String url = RestaurantPhotos.url(place, mCard.getWidth(), mCard.getHeight());
-		RestaurantHolder.from(view).photo(url, mCard).name(place.getName())
-				.rating(place.getRating());
-		return view;
-	}
+    @Override
+    public View getView(int position, Place place, View view, ViewGroup parent) {
+        if (view == null) {
+            view = LayoutInflater.from(parent.getContext())
+                    .inflate(R.layout.restaurants_adapter, parent, false);
+        }
+        String url = RestaurantPhotos.url(place, mCard.getWidth(), mCard.getHeight());
+        RestaurantHolder.from(view).photo(url, mCard).name(place.getName())
+                .rating(place.getRating());
+        return view;
+    }
 }

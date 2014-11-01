@@ -17,34 +17,33 @@
 
 package net.sf.diningout.sql;
 
-import java.io.IOException;
-
 import org.apache.commons.dbutils.QueryLoader;
+
+import java.io.IOException;
 
 /**
  * Get queries defined in the XML files in this package.
  */
 public class Queries {
-	private static final QueryLoader sLoader = QueryLoader.instance();
-	private static final String FILE = file("queries");
+    private static final QueryLoader sLoader = QueryLoader.instance();
+    private static final String FILE = file("queries");
 
-	private Queries() {
-	}
+    private Queries() {
+    }
 
-	/**
-	 * Get the query identified by the key.
-	 * 
-	 * @throws IOException
-	 *             if there is a problem reading the file
-	 */
-	public static String get(String key) throws IOException {
-		return sLoader.load(FILE).get(key);
-	}
+    /**
+     * Get the query identified by the key.
+     *
+     * @throws IOException if there is a problem reading the file
+     */
+    public static String get(String key) throws IOException {
+        return sLoader.load(FILE).get(key);
+    }
 
-	/**
-	 * Get the full file path for the name without extension.
-	 */
-	private static String file(String name) {
-		return '/' + Queries.class.getPackage().getName().replace('.', '/') + '/' + name + ".xml";
-	}
+    /**
+     * Get the full file path for the name without extension.
+     */
+    private static String file(String name) {
+        return '/' + Queries.class.getPackage().getName().replace('.', '/') + '/' + name + ".xml";
+    }
 }

@@ -17,13 +17,6 @@
 
 package net.sf.diningout.app.ui;
 
-import net.sf.diningout.R;
-import net.sf.sprockets.app.ui.SprocketsFragment;
-import net.sf.sprockets.google.Place;
-import net.sf.sprockets.text.TextWatcherAdapter;
-import net.sf.sprockets.view.inputmethod.InputMethods;
-import net.sf.sprockets.widget.GooglePlaceAutoComplete;
-import net.sf.sprockets.widget.GooglePlaceAutoComplete.OnPlaceClickListener;
 import android.app.Activity;
 import android.os.Bundle;
 import android.text.TextUtils;
@@ -31,6 +24,15 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
+
+import net.sf.diningout.R;
+import net.sf.sprockets.app.ui.SprocketsFragment;
+import net.sf.sprockets.google.Place;
+import net.sf.sprockets.text.TextWatcherAdapter;
+import net.sf.sprockets.view.inputmethod.InputMethods;
+import net.sf.sprockets.widget.GooglePlaceAutoComplete;
+import net.sf.sprockets.widget.GooglePlaceAutoComplete.OnPlaceClickListener;
+
 import butterknife.InjectView;
 import butterknife.OnClick;
 
@@ -39,70 +41,70 @@ import butterknife.OnClick;
  * attach this must implement {@link Listener}.
  */
 public class RestaurantAutocompleteFragment extends SprocketsFragment {
-	@InjectView(R.id.name)
-	GooglePlaceAutoComplete mName;
-	private Listener mListener;
+    @InjectView(R.id.name)
+    GooglePlaceAutoComplete mName;
+    private Listener mListener;
 
-	@Override
-	public void onAttach(Activity activity) {
-		super.onAttach(activity);
-		mListener = (Listener) activity;
-	}
+    @Override
+    public void onAttach(Activity activity) {
+        super.onAttach(activity);
+        mListener = (Listener) activity;
+    }
 
-	@Override
-	public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle state) {
-		return inflater.inflate(R.layout.restaurant_autocomplete, container, false);
-	}
+    @Override
+    public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle state) {
+        return inflater.inflate(R.layout.restaurant_autocomplete, container, false);
+    }
 
-	@Override
-	public void onViewCreated(View view, Bundle savedInstanceState) {
-		super.onViewCreated(view, savedInstanceState);
-		mName.addTextChangedListener(new TextWatcherAdapter() {
-			@Override
-			public void onTextChanged(CharSequence s, int start, int before, int count) {
-				mListener.onRestaurantNameChange(s);
-			}
-		});
-		mName.setOnPlaceClickListener(new OnPlaceClickListener() {
-			@Override
-			public void onPlaceClick(AdapterView<?> parent, Place place, int position) {
-				mListener.onRestaurantAutocomplete(place);
-			}
-		});
-	}
+    @Override
+    public void onViewCreated(View view, Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+        mName.addTextChangedListener(new TextWatcherAdapter() {
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                mListener.onRestaurantNameChange(s);
+            }
+        });
+        mName.setOnPlaceClickListener(new OnPlaceClickListener() {
+            @Override
+            public void onPlaceClick(AdapterView<?> parent, Place place, int position) {
+                mListener.onRestaurantAutocomplete(place);
+            }
+        });
+    }
 
-	@OnClick(R.id.search)
-	void search() {
-		CharSequence name = mName.getText();
-		if (TextUtils.getTrimmedLength(name) > 0) {
-			InputMethods.hide(mName);
-			mListener.onRestaurantSearch(name);
-		}
-	}
+    @OnClick(R.id.search)
+    void search() {
+        CharSequence name = mName.getText();
+        if (TextUtils.getTrimmedLength(name) > 0) {
+            InputMethods.hide(mName);
+            mListener.onRestaurantSearch(name);
+        }
+    }
 
-	@Override
-	public void onDetach() {
-		super.onDetach();
-		mListener = null;
-	}
+    @Override
+    public void onDetach() {
+        super.onDetach();
+        mListener = null;
+    }
 
-	/**
-	 * Receives notifications for {@link RestaurantAutocompleteFragment} events.
-	 */
-	interface Listener {
-		/**
-		 * The entered restaurant name changed.
-		 */
-		void onRestaurantNameChange(CharSequence name);
+    /**
+     * Receives notifications for {@link RestaurantAutocompleteFragment} events.
+     */
+    interface Listener {
+        /**
+         * The entered restaurant name changed.
+         */
+        void onRestaurantNameChange(CharSequence name);
 
-		/**
-		 * The restaurant in autocomplete suggestions was clicked.
-		 */
-		void onRestaurantAutocomplete(Place place);
+        /**
+         * The restaurant in autocomplete suggestions was clicked.
+         */
+        void onRestaurantAutocomplete(Place place);
 
-		/**
-		 * A request to search for the restaurant was made.
-		 */
-		void onRestaurantSearch(CharSequence name);
-	}
+        /**
+         * A request to search for the restaurant was made.
+         */
+        void onRestaurantSearch(CharSequence name);
+    }
 }

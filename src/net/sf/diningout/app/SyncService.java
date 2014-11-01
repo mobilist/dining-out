@@ -17,32 +17,35 @@
 
 package net.sf.diningout.app;
 
-import net.sf.diningout.content.SyncAdapter;
 import android.app.Service;
 import android.content.AbstractThreadedSyncAdapter;
 import android.content.Intent;
 import android.os.IBinder;
 
+import net.sf.diningout.content.SyncAdapter;
+
 /**
  * Provides a binder to the sync adapter.
  */
 public class SyncService extends Service {
-	/** Adapter to bind to. */
-	private static AbstractThreadedSyncAdapter sAdapter;
-	private static final Object LOCK = new Object();
+    /**
+     * Adapter to bind to.
+     */
+    private static AbstractThreadedSyncAdapter sAdapter;
+    private static final Object LOCK = new Object();
 
-	@Override
-	public void onCreate() {
-		super.onCreate();
-		synchronized (LOCK) {
-			if (sAdapter == null) {
-				sAdapter = new SyncAdapter(getApplicationContext());
-			}
-		}
-	}
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        synchronized (LOCK) {
+            if (sAdapter == null) {
+                sAdapter = new SyncAdapter(getApplicationContext());
+            }
+        }
+    }
 
-	@Override
-	public IBinder onBind(Intent intent) {
-		return sAdapter.getSyncAdapterBinder();
-	}
+    @Override
+    public IBinder onBind(Intent intent) {
+        return sAdapter.getSyncAdapterBinder();
+    }
 }

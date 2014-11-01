@@ -17,25 +17,6 @@
 
 package net.sf.diningout.app.ui;
 
-import static android.support.v4.view.ViewPager.SCROLL_STATE_IDLE;
-import static android.widget.AdapterView.ITEM_VIEW_TYPE_HEADER_OR_FOOTER;
-import static net.sf.diningout.data.Review.Type.GOOGLE;
-import static net.sf.diningout.data.Review.Type.PRIVATE;
-import net.sf.diningout.R;
-import net.sf.diningout.app.ui.ReviewsFragment.Listener;
-import net.sf.sprockets.app.ui.SprocketsActivity;
-import net.sf.sprockets.app.ui.SprocketsListFragment;
-import net.sf.sprockets.content.res.Themes;
-import net.sf.sprockets.view.Animators;
-import net.sf.sprockets.view.Displays;
-import net.sf.sprockets.view.Windows;
-import net.sf.sprockets.view.inputmethod.InputMethods;
-import net.sf.sprockets.widget.FadingActionBarScrollListener;
-import net.sf.sprockets.widget.FloatingHeaderScrollListener;
-import net.sf.sprockets.widget.ListScrollListeners;
-import net.sf.sprockets.widget.ListScrollListeners.OnScrollApprover;
-import net.sf.sprockets.widget.ListViews;
-import net.sf.sprockets.widget.ParallaxViewScrollListener;
 import android.content.res.Resources;
 import android.database.DataSetObserver;
 import android.graphics.Color;
@@ -56,301 +37,327 @@ import android.widget.AbsListView.OnScrollListener;
 import android.widget.ListAdapter;
 import android.widget.ListView;
 import android.widget.Space;
-import butterknife.InjectView;
 
 import com.astuetz.PagerSlidingTabStrip;
+
+import net.sf.diningout.R;
+import net.sf.sprockets.app.ui.SprocketsActivity;
+import net.sf.sprockets.app.ui.SprocketsListFragment;
+import net.sf.sprockets.content.res.Themes;
+import net.sf.sprockets.view.Animators;
+import net.sf.sprockets.view.Displays;
+import net.sf.sprockets.view.Windows;
+import net.sf.sprockets.view.inputmethod.InputMethods;
+import net.sf.sprockets.widget.FadingActionBarScrollListener;
+import net.sf.sprockets.widget.FloatingHeaderScrollListener;
+import net.sf.sprockets.widget.ListScrollListeners;
+import net.sf.sprockets.widget.ListScrollListeners.OnScrollApprover;
+import net.sf.sprockets.widget.ListViews;
+import net.sf.sprockets.widget.ParallaxViewScrollListener;
+
+import butterknife.InjectView;
+
+import static android.support.v4.view.ViewPager.SCROLL_STATE_IDLE;
+import static android.widget.AdapterView.ITEM_VIEW_TYPE_HEADER_OR_FOOTER;
+import static net.sf.diningout.data.Review.Type.GOOGLE;
+import static net.sf.diningout.data.Review.Type.PRIVATE;
 
 /**
  * Displays a restaurant's details and reviews. Callers must include {@link #EXTRA_ID} in their
  * Intent extras.
  */
-public class RestaurantActivity extends SprocketsActivity implements OnScrollApprover, Listener {
-	/** ID of the restaurant. */
-	public static final String EXTRA_ID = "intent.extra.ID";
-	/** Image to display while the restaurant photo is loading. */
-	static Drawable sPlaceholder;
-	private static final int[] sTabTitles = { R.string.tab_private, R.string.tab_public,
-			R.string.tab_notes };
+public class RestaurantActivity extends SprocketsActivity implements OnScrollApprover {
+    /**
+     * ID of the restaurant.
+     */
+    public static final String EXTRA_ID = "intent.extra.ID";
+    /**
+     * Image to display while the restaurant photo is loading.
+     */
+    static Drawable sPlaceholder;
+    private static final int[] sTabTitles = {R.string.tab_private, R.string.tab_public,
+            R.string.tab_notes};
 
-	@InjectView(R.id.detail)
-	View mDetail;
-	@InjectView(R.id.tabs)
-	PagerSlidingTabStrip mTabs;
-	@InjectView(R.id.pager)
-	ViewPager mPager;
-	private int mActionBarSize;
+    @InjectView(R.id.detail)
+    View mDetail;
+    @InjectView(R.id.tabs)
+    PagerSlidingTabStrip mTabs;
+    @InjectView(R.id.pager)
+    ViewPager mPager;
+    private int mActionBarSize;
 
-	@Override
-	protected void onCreate(Bundle savedInstanceState) {
-		super.onCreate(savedInstanceState);
-		setContentView(R.layout.restaurant_activity);
-		mActionBarSize = Themes.getActionBarSize(this);
-		mPager.setOffscreenPageLimit(sTabTitles.length - 1); // keep all Fragments alive
-		mPager.setAdapter(new PagerAdapter());
-		mTabs.setViewPager(mPager);
-		mTabs.setOnPageChangeListener(new PageChangeListener());
-	}
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.restaurant_activity);
+        mActionBarSize = Themes.getActionBarSize(this);
+        mPager.setOffscreenPageLimit(sTabTitles.length - 1); // keep all Fragments alive
+        mPager.setAdapter(new PagerAdapter());
+        mTabs.setViewPager(mPager);
+        mTabs.setOnPageChangeListener(new PageChangeListener());
+    }
 
-	@Override
-	public boolean onScroll(OnScrollListener listener, AbsListView view, int first, int visible,
-			int total) {
-		TabListFragment item = getCurrentFragment();
-		return item != null && view == item.getListView(); // only when list is from current page
-	}
+    @Override
+    public boolean onScroll(OnScrollListener listener, AbsListView view, int first, int visible,
+                            int total) {
+        TabListFragment item = getCurrentFragment();
+        return item != null && view == item.getListView(); // only when list is from current page
+    }
 
-	private TabListFragment getCurrentFragment() {
-		return ((PagerAdapter) mPager.getAdapter()).mItems[mPager.getCurrentItem()];
-	}
+    TabListFragment getCurrentFragment() {
+        return ((PagerAdapter) mPager.getAdapter()).mItems[mPager.getCurrentItem()];
+    }
 
-	@Override
-	public boolean isVisible(ReviewsFragment frag) {
-		return frag == getCurrentFragment();
-	}
+    @Override
+    public void finish() {
+        ViewPropertyAnimator anim = Animators.makeScaleDownAnimation(this);
+        if (anim != null) {
+            anim.alpha(0.0f).withEndAction(new Runnable() {
+                @Override
+                public void run() {
+                    RestaurantActivity.super.finish();
+                    overridePendingTransition(0, 0);
+                }
+            });
+        } else {
+            super.finish();
+        }
+    }
 
-	@Override
-	public void finish() {
-		ViewPropertyAnimator anim = Animators.makeScaleDownAnimation(this);
-		if (anim != null) {
-			anim.alpha(0.0f).withEndAction(new Runnable() {
-				@Override
-				public void run() {
-					RestaurantActivity.super.finish();
-					overridePendingTransition(0, 0);
-				}
-			});
-		} else {
-			super.finish();
-		}
-	}
+    /**
+     * Provides Fragments for the tabs.
+     */
+    private class PagerAdapter extends FragmentPagerAdapter {
+        /**
+         * Cached items that are populated as they are created.
+         */
+        private final TabListFragment[] mItems = new TabListFragment[getCount()];
 
-	/**
-	 * Provides Fragments for the tabs.
-	 */
-	private class PagerAdapter extends FragmentPagerAdapter {
-		/** Cached items that are populated as they are created. */
-		private final TabListFragment[] mItems = new TabListFragment[getCount()];
+        private PagerAdapter() {
+            super(getFragmentManager());
+        }
 
-		private PagerAdapter() {
-			super(getFragmentManager());
-		}
+        @Override
+        public int getCount() {
+            return sTabTitles.length;
+        }
 
-		@Override
-		public int getCount() {
-			return sTabTitles.length;
-		}
+        @Override
+        public Object instantiateItem(ViewGroup container, int position) {
+            /* save items from getItem(int) or when restored after configuration change */
+            mItems[position] = (TabListFragment) super.instantiateItem(container, position);
+            return mItems[position];
+        }
 
-		@Override
-		public Object instantiateItem(ViewGroup container, int position) {
-			/* save items from getItem(int) or when restored after configuration change */
-			mItems[position] = (TabListFragment) super.instantiateItem(container, position);
-			return mItems[position];
-		}
+        @Override
+        public TabListFragment getItem(int position) {
+            long id = getIntent().getLongExtra(EXTRA_ID, 0L);
+            switch (position) {
+                case 0:
+                case 1:
+                    return ReviewsFragment.newInstance(id, position == 0 ? PRIVATE : GOOGLE);
+                case 2:
+                    return NotesFragment.newInstance(id);
+            }
+            return null;
+        }
 
-		@Override
-		public TabListFragment getItem(int position) {
-			long id = getIntent().getLongExtra(EXTRA_ID, 0L);
-			switch (position) {
-			case 0:
-			case 1:
-				return ReviewsFragment.newInstance(id, position == 0 ? PRIVATE : GOOGLE);
-			case 2:
-				return NotesFragment.newInstance(id);
-			}
-			return null;
-		}
+        @Override
+        public CharSequence getPageTitle(int position) {
+            return getString(sTabTitles[position]);
+        }
+    }
 
-		@Override
-		public CharSequence getPageTitle(int position) {
-			return getString(sTabTitles[position]);
-		}
-	}
+    /**
+     * Synchronises the list scrolls to maintain tabs translation.
+     */
+    private class PageChangeListener extends SimpleOnPageChangeListener {
+        /**
+         * Previous pager item from which the list scrolls are synchronised.
+         */
+        private int mOldItem = mPager.getCurrentItem();
+        /**
+         * True if the lists have been synchronised for the paging session.
+         */
+        private boolean mSynced;
 
-	/**
-	 * Synchronises the list scrolls to maintain tabs translation.
-	 */
-	private class PageChangeListener extends SimpleOnPageChangeListener {
-		/** Previous pager item from which the list scrolls are synchronised. */
-		private int mOldItem = mPager.getCurrentItem();
-		/** True if the lists have been synchronised for the paging session. */
-		private boolean mSynced;
+        @Override
+        public void onPageScrollStateChanged(int state) {
+            super.onPageScrollStateChanged(state);
+            if (state == SCROLL_STATE_IDLE) { // can scroll tabs up and down now
+                mSynced = false;
+            }
+        }
 
-		@Override
-		public void onPageScrollStateChanged(int state) {
-			super.onPageScrollStateChanged(state);
-			if (state == SCROLL_STATE_IDLE) { // can scroll tabs up and down now
-				mSynced = false;
-			}
-		}
+        @Override
+        public void onPageScrolled(int position, float positionOffset, int positionOffsetPixels) {
+            super.onPageScrolled(position, positionOffset, positionOffsetPixels);
+            if (!mSynced && positionOffsetPixels > 0) {
+                sync();
+            }
+        }
 
-		@Override
-		public void onPageScrolled(int position, float positionOffset, int positionOffsetPixels) {
-			super.onPageScrolled(position, positionOffset, positionOffsetPixels);
-			if (!mSynced && positionOffsetPixels > 0) {
-				sync();
-			}
-		}
+        @Override
+        public void onPageSelected(int position) {
+            super.onPageSelected(position);
+            if (!mSynced) {
+                sync();
+            }
+            if (mOldItem == 0 || mOldItem == 2) { // hide input method when selecting other tab
+                mPager.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        InputMethods.hide(mPager);
+                    }
+                }, 300L); // after page swipe animation
+            }
+            PagerAdapter adapter = (PagerAdapter) mPager.getAdapter();
+            final TabListFragment oldItem = adapter.mItems[mOldItem];
+            final TabListFragment newItem = adapter.mItems[position];
+            if (oldItem != null && newItem != null) { // can be after configuration change
+                mPager.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        oldItem.hideActionMode();
+                        newItem.restoreActionMode();
+                    }
+                }, 500L); // after ActionBar menu updates (so add review icon doesn't flicker)
+            }
+            mOldItem = position;
+        }
 
-		@Override
-		public void onPageSelected(int position) {
-			super.onPageSelected(position);
-			if (!mSynced) {
-				sync();
-			}
-			if (mOldItem == 0 || mOldItem == 2) { // hide input method when selecting other tab
-				mPager.postDelayed(new Runnable() {
-					@Override
-					public void run() {
-						InputMethods.hide(mPager);
-					}
-				}, 300L); // after page swipe animation
-			}
-			PagerAdapter adapter = (PagerAdapter) mPager.getAdapter();
-			final TabListFragment oldItem = adapter.mItems[mOldItem];
-			final TabListFragment newItem = adapter.mItems[position];
-			if (oldItem != null && newItem != null) { // can be after configuration change
-				mPager.postDelayed(new Runnable() {
-					@Override
-					public void run() {
-						oldItem.hideActionMode();
-						newItem.restoreActionMode();
-					}
-				}, 500L); // after ActionBar menu updates (so add review icon doesn't flicker)
-			}
-			mOldItem = position;
-		}
+        /**
+         * Synchronise scroll of other lists.
+         */
+        private void sync() {
+            PagerAdapter adapter = (PagerAdapter) mPager.getAdapter();
+            TabListFragment item = adapter.mItems[mOldItem];
+            if (item == null) {
+                return; // after configuration change, before items are restored
+            }
+            ListView oldList = item.getListView();
+            boolean oldHeaderVisible = oldList.getFirstVisiblePosition() == 0;
+            int count = adapter.getCount();
+            for (int i = 0; i < count; i++) { // sync all lists in case of continuous page scroll
+                if (i != mOldItem) {
+                    item = adapter.mItems[i];
+                    ListView newList = item.getListView();
+                    if (oldHeaderVisible) {
+                        newList.setSelectionFromTop(0, oldList.getChildAt(0).getTop());
+                    } else {
+                        newList.setSelectionFromTop(1, mActionBarSize * 2 + item.mDividerHeight);
+                    }
+                }
+            }
+            mSynced = true;
+        }
+    }
 
-		/**
-		 * Synchronise scroll of other lists.
-		 */
-		private void sync() {
-			PagerAdapter adapter = (PagerAdapter) mPager.getAdapter();
-			TabListFragment item = adapter.mItems[mOldItem];
-			if (item == null) {
-				return; // after configuration change, before items are restored
-			}
-			ListView oldList = item.getListView();
-			boolean oldHeaderVisible = oldList.getFirstVisiblePosition() == 0;
-			int count = adapter.getCount();
-			for (int i = 0; i < count; i++) { // sync all lists in case of continuous page scroll
-				if (i != mOldItem) {
-					item = adapter.mItems[i];
-					ListView newList = item.getListView();
-					if (oldHeaderVisible) {
-						newList.setSelectionFromTop(0, oldList.getChildAt(0).getTop());
-					} else {
-						newList.setSelectionFromTop(1, mActionBarSize * 2 + item.mDividerHeight);
-					}
-				}
-			}
-			mSynced = true;
-		}
-	}
+    /**
+     * Adds a transparent header View over the restaurant details and tabs, and a footer View sized
+     * so that a short list can still scroll to the top of the screen. Sets an OnScrollListener to
+     * manage the ActionBar transparency, details parallax scrolling, and tabs floating.
+     */
+    static abstract class TabListFragment extends SprocketsListFragment {
+        int mDividerHeight;
 
-	/**
-	 * Adds a transparent header View over the restaurant details and tabs, and a footer View sized
-	 * so that a short list can still scroll to the top of the screen. Sets an OnScrollListener to
-	 * manage the ActionBar transparency, details parallax scrolling, and tabs floating.
-	 */
-	static abstract class TabListFragment extends SprocketsListFragment {
-		int mDividerHeight;
+        @Override
+        public void onCreate(Bundle savedInstanceState) {
+            super.onCreate(savedInstanceState);
+            mDividerHeight = getResources().getDimensionPixelOffset(R.dimen.cards_sibling_margin);
+        }
 
-		@Override
-		public void onCreate(Bundle savedInstanceState) {
-			super.onCreate(savedInstanceState);
-			mDividerHeight = getResources().getDimensionPixelOffset(R.dimen.cards_sibling_margin);
-		}
+        @Override
+        public void onViewCreated(View view, Bundle savedInstanceState) {
+            super.onViewCreated(view, savedInstanceState);
+            RestaurantActivity a = (RestaurantActivity) getActivity();
+            Resources res = getResources();
+            ListView list = getListView();
+            list.setFocusable(false); // don't steal focus from EditText when keyboard appears
+            list.setSelector(R.drawable.cards_list_selector);
+            list.setDivider(res.getDrawable(R.color.cards_window_background));
+            list.setDividerHeight(mDividerHeight);
+            list.setOnTouchListener(new TouchListener());
+            FadingActionBarScrollListener fade = new FadingActionBarScrollListener(a, true, true, 1)
+                    .setOpaqueOffset(a.mActionBarSize * 2).setOnScrollApprover(a);
+            if (Displays.getSize(a).x > res.getDimensionPixelSize(R.dimen.restaurant_photo_width)) {
+                fade.setMinBackgroundOpacity(Color.alpha(res.getColor(R.color.overlay)));
+            }
+            OnScrollListener parallax = new ParallaxViewScrollListener(a.mDetail, 0.5f)
+                    .setOnScrollApprover(a);
+            OnScrollListener floating = new FloatingHeaderScrollListener(a.mTabs)
+                    .setActionBarOverlay(true).setOnScrollApprover(a);
+            list.setOnScrollListener(new ListScrollListeners(fade, parallax, floating));
+            Space header = new Space(a);
+            header.setLayoutParams(new LayoutParams(1,
+                    res.getDimensionPixelSize(R.dimen.restaurant_photo_height) + a.mActionBarSize,
+                    ITEM_VIEW_TYPE_HEADER_OR_FOOTER));
+            list.addHeaderView(header); // must be selectable to draw following divider
+        }
 
-		@Override
-		public void onViewCreated(View view, Bundle savedInstanceState) {
-			super.onViewCreated(view, savedInstanceState);
-			RestaurantActivity a = (RestaurantActivity) getActivity();
-			Resources res = getResources();
-			ListView list = getListView();
-			list.setFocusable(false); // don't steal focus from EditText when keyboard appears
-			list.setSelector(R.drawable.cards_list_selector);
-			list.setDivider(res.getDrawable(R.color.cards_window_background));
-			list.setDividerHeight(mDividerHeight);
-			list.setOnTouchListener(new TouchListener());
-			FadingActionBarScrollListener fade = new FadingActionBarScrollListener(a, true, true, 1)
-					.setOpaqueOffset(a.mActionBarSize * 2).setOnScrollApprover(a);
-			if (Displays.getSize(a).x > res.getDimensionPixelSize(R.dimen.restaurant_photo_width)) {
-				fade.setMinBackgroundOpacity(Color.alpha(res.getColor(R.color.overlay)));
-			}
-			OnScrollListener parallax = new ParallaxViewScrollListener(a.mDetail, 0.5f)
-					.setOnScrollApprover(a);
-			OnScrollListener floating = new FloatingHeaderScrollListener(a.mTabs)
-					.setActionBarOverlay(true).setOnScrollApprover(a);
-			list.setOnScrollListener(new ListScrollListeners(fade, parallax, floating));
-			Space header = new Space(a);
-			header.setLayoutParams(new LayoutParams(1, res
-					.getDimensionPixelSize(R.dimen.restaurant_photo_height) + a.mActionBarSize,
-					ITEM_VIEW_TYPE_HEADER_OR_FOOTER));
-			list.addHeaderView(header); // must be selectable for api 16 to draw following divider
-		}
+        @Override
+        public void setListAdapter(ListAdapter adapter) {
+            super.setListAdapter(adapter);
+            adapter.registerDataSetObserver(new Observer());
+        }
 
-		@Override
-		public void setListAdapter(ListAdapter adapter) {
-			super.setListAdapter(adapter);
-			adapter.registerDataSetObserver(new Observer());
-		}
+        /**
+         * Forwards touches to the overlaid detail View.
+         */
+        private class TouchListener implements OnTouchListener {
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                if (getListView().getFirstVisiblePosition() == 0) { // detail View visible
+                    RestaurantActivity a = (RestaurantActivity) getActivity();
+                    if (event.getY() < a.mTabs.getTranslationY() + a.mTabs.getHeight()) {
+                        float y = a.mDetail.getTranslationY();
+                        if (y == 0.0f) {
+                            a.mDetail.dispatchTouchEvent(event);
+                        } else { // offset event to match detail translation
+                            MotionEvent offsetEvent = MotionEvent.obtain(event);
+                            offsetEvent.offsetLocation(0.0f, -y);
+                            a.mDetail.dispatchTouchEvent(offsetEvent);
+                            offsetEvent.recycle();
+                        }
+                    }
+                }
+                return false;
+            }
+        }
 
-		/**
-		 * Forwards touches to the overlaid detail View.
-		 */
-		private class TouchListener implements OnTouchListener {
-			@Override
-			public boolean onTouch(View v, MotionEvent event) {
-				if (getListView().getFirstVisiblePosition() == 0) { // detail View visible
-					RestaurantActivity a = (RestaurantActivity) getActivity();
-					if (event.getY() < a.mTabs.getTranslationY() + a.mTabs.getHeight()) {
-						float y = a.mDetail.getTranslationY();
-						if (y == 0.0f) {
-							a.mDetail.dispatchTouchEvent(event);
-						} else { // offset event to match detail translation
-							MotionEvent offsetEvent = MotionEvent.obtain(event);
-							offsetEvent.offsetLocation(0.0f, -y);
-							a.mDetail.dispatchTouchEvent(offsetEvent);
-							offsetEvent.recycle();
-						}
-					}
-				}
-				return false;
-			}
-		}
+        /**
+         * Updates the footer View height when the adapter Views change so that short lists (and the
+         * tabs above them) can still be scrolled to the top of the screen.
+         */
+        private class Observer extends DataSetObserver {
+            private final Space mFooter = new Space(getActivity());
 
-		/**
-		 * Updates the footer View height when the adapter Views change so that short lists (and the
-		 * tabs above them) can still be scrolled to the top of the screen.
-		 */
-		private class Observer extends DataSetObserver {
-			private final Space mFooter = new Space(getActivity());
+            private Observer() {
+                mFooter.setLayoutParams(new LayoutParams(1, 0, ITEM_VIEW_TYPE_HEADER_OR_FOOTER));
+                getListView().addFooterView(mFooter, null, false);
+            }
 
-			private Observer() {
-				mFooter.setLayoutParams(new LayoutParams(1, 0, ITEM_VIEW_TYPE_HEADER_OR_FOOTER));
-				getListView().addFooterView(mFooter, null, false);
-			}
-
-			@Override
-			public void onChanged() {
-				super.onChanged();
-				final ListView view = getListView();
-				/* when the Views are laid out, update footer height so they can scroll to top */
-				view.getViewTreeObserver().addOnGlobalLayoutListener(new OnGlobalLayoutListener() {
-					@Override
-					public void onGlobalLayout() {
-						view.getViewTreeObserver().removeOnGlobalLayoutListener(this);
-						RestaurantActivity a = (RestaurantActivity) getActivity();
-						/* based on display height, windowSoftInputMode adjustResize shrinks View */
-						int listHeight = Displays.getSize(a).y - Windows.getFrame(a).top
-								- a.mActionBarSize * 2; // - status bar - ActionBar - tabs
-						int views = ListViews.getHeight(view, 1, view.getAdapter().getCount() - 1,
-								listHeight); // ignore header and footer
-						mFooter.getLayoutParams().height = Math.max(listHeight - views
-								- mDividerHeight, 0);
-						mFooter.requestLayout();
-					}
-				});
-			}
-		}
-	}
+            @Override
+            public void onChanged() {
+                super.onChanged();
+                final ListView view = getListView();
+                /* when the Views are laid out, update footer height so they can scroll to top */
+                view.getViewTreeObserver().addOnGlobalLayoutListener(new OnGlobalLayoutListener() {
+                    @Override
+                    public void onGlobalLayout() {
+                        view.getViewTreeObserver().removeOnGlobalLayoutListener(this);
+                        RestaurantActivity a = (RestaurantActivity) getActivity();
+                        /* based on display height, windowSoftInputMode adjustResize shrinks View */
+                        int listHeight = Displays.getSize(a).y - Windows.getFrame(a).top
+                                - a.mActionBarSize * 2; // - status bar - ActionBar - tabs
+                        int views = ListViews.getHeight(view, 1, view.getAdapter().getCount() - 1,
+                                listHeight); // ignore header and footer
+                        mFooter.getLayoutParams().height =
+                                Math.max(listHeight - views - mDividerHeight, 0);
+                        mFooter.requestLayout();
+                    }
+                });
+            }
+        }
+    }
 }

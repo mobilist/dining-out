@@ -21,25 +21,47 @@ package net.sf.diningout.preference;
  * Keys used in SharedPreferences.
  */
 public class Keys {
-	/** Name of selected account. */
-	public static final String ACCOUNT_NAME = "account_name";
-	/** True if the account has been initialised. */
-	public static final String ACCOUNT_INITIALISED = "account_initialised";
-	/** Identifier for this installation. */
-	public static final String INSTALL_ID = "install_id";
-	/** True if the user has completed the onboarding process. */
-	public static final String ONBOARDED = "onboarded";
-	/** Epoch milliseconds of the last full sync. */
-	public static final String LAST_SYNC = "last_sync";
-	/** Used by the server to contact this device through cloud messaging. */
-	public static final String CLOUD_ID = "cloud_id";
-	/** True if notifications for sync events should be shown. */
-	public static final String SHOW_SYNC_NOTIFICATIONS = "show_sync_notifications";
-	/** URI path for the selected notification ringtone or empty if no ringtone should be played. */
-	public static final String RINGTONE = "ringtone";
-	/** True if notifications should cause vibration. */
-	public static final String VIBRATE = "vibrate";
+    /**
+     * Name of selected account.
+     */
+    public static final String ACCOUNT_NAME = "account_name";
+    /**
+     * True if the account has been initialised.
+     */
+    public static final String ACCOUNT_INITIALISED = "account_initialised";
+    /**
+     * True if the user allows anonymous usage statistics to be sent.
+     */
+    public static final String ALLOW_ANALYTICS = "allow_analytics";
+    /**
+     * Identifier for this installation.
+     */
+    public static final String INSTALL_ID = "install_id";
+    /**
+     * True if the user has completed the onboarding process.
+     */
+    public static final String ONBOARDED = "onboarded";
+    /**
+     * Epoch milliseconds of the last full sync.
+     */
+    public static final String LAST_SYNC = "last_sync";
+    /**
+     * Used by the server to contact this device through cloud messaging.
+     */
+    public static final String CLOUD_ID = "cloud_id";
+    /**
+     * True if notifications for sync events should be shown.
+     */
+    public static final String SHOW_SYNC_NOTIFICATIONS = "show_sync_notifications";
+    /**
+     * URI path for the selected notification ringtone or empty if no ringtone should be played.
+     */
+    public static final String RINGTONE = "ringtone";
+    /**
+     * True if notifications should cause vibration.
+     */
+    public static final String VIBRATE = "vibrate";
 
-	private Keys() {
-	}
+    private Keys() {
+    }
 }
