@@ -28,6 +28,7 @@ import android.widget.AdapterView;
 import net.sf.diningout.R;
 import net.sf.sprockets.app.ui.SprocketsFragment;
 import net.sf.sprockets.google.Place;
+import net.sf.sprockets.google.Place.Prediction;
 import net.sf.sprockets.text.TextWatcherAdapter;
 import net.sf.sprockets.view.inputmethod.InputMethods;
 import net.sf.sprockets.widget.GooglePlaceAutoComplete;
@@ -67,7 +68,7 @@ public class RestaurantAutocompleteFragment extends SprocketsFragment {
         });
         mName.setOnPlaceClickListener(new OnPlaceClickListener() {
             @Override
-            public void onPlaceClick(AdapterView<?> parent, Place place, int position) {
+            public void onPlaceClick(AdapterView<?> parent, Prediction place, int position) {
                 mListener.onRestaurantAutocomplete(place);
             }
         });

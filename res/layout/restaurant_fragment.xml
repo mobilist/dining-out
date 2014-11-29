@@ -45,6 +45,15 @@
         android:paddingLeft="@dimen/padding"
         android:paddingRight="@dimen/padding_medium"/>
 
+    <ViewStub
+        android:id="@+id/edit_address_stub"
+        android:layout_width="wrap_content"
+        android:layout_height="@dimen/min_touch_size"
+        android:layout_alignParentRight="true"
+        android:layout_alignTop="@id/address"
+        android:layout_marginRight="@dimen/padding_small"
+        android:layout="@layout/restaurant_edit_address"/>
+
     <TextView
         android:id="@+id/phone"
         style="@style/Cell.Title"
@@ -63,6 +72,15 @@
         android:paddingLeft="@dimen/padding"
         android:paddingRight="@dimen/padding_medium"/>
 
+    <ViewStub
+        android:id="@+id/edit_phone_stub"
+        android:layout_width="wrap_content"
+        android:layout_height="@dimen/min_touch_size"
+        android:layout_alignParentRight="true"
+        android:layout_alignTop="@id/phone"
+        android:layout_marginRight="@dimen/padding_small"
+        android:layout="@layout/restaurant_edit_phone"/>
+
     <TextView
         android:id="@+id/website"
         style="@style/Cell.Title"
@@ -80,5 +98,14 @@
         android:maxWidth="@dimen/restaurant_detail_max_width"
         android:paddingLeft="@dimen/padding"
         android:paddingRight="@dimen/padding_medium"/>
+
+    <ViewStub
+        android:id="@+id/edit_website_stub"
+        android:layout_width="wrap_content"
+        android:layout_height="@dimen/min_touch_size"
+        android:layout_alignParentRight="true"
+        android:layout_alignTop="@id/website"
+        android:layout_marginRight="@dimen/padding_small"
+        android:layout="@layout/restaurant_edit_website"/>
 
 </RelativeLayout>

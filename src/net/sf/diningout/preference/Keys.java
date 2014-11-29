@@ -38,6 +38,10 @@ public class Keys {
      */
     public static final String INSTALL_ID = "install_id";
     /**
+     * True if the navigation drawer has been opened at least once.
+     */
+    public static final String NAVIGATION_DRAWER_OPENED = "navigation_drawer_opened";
+    /**
      * True if the user has completed the onboarding process.
      */
     public static final String ONBOARDED = "onboarded";

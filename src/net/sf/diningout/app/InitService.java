@@ -32,6 +32,9 @@ import net.sf.sprockets.google.Place;
 import java.io.IOException;
 import java.util.List;
 
+import static net.sf.sprockets.app.SprocketsApplication.cr;
+import static net.sf.sprockets.gms.analytics.Trackers.exception;
+
 /**
  * Inserts the restaurants, updates their details, downloads their photos, and follows the contacts.
  */
@@ -54,7 +57,7 @@ public class InitService extends IntentService {
     protected void onHandleIntent(Intent intent) {
         List<ContentValues> restaurants = intent.getParcelableArrayListExtra(EXTRA_RESTAURANTS);
         long[] contactIds = intent.getLongArrayExtra(EXTRA_CONTACT_IDS);
-        ContentResolver cr = getContentResolver();
+        ContentResolver cr = cr();
         long[] restaurantIds = null;
         if (restaurants != null) { // insert the restaurants
             int size = restaurants.size();
@@ -77,10 +80,15 @@ public class InitService extends IntentService {
             long[] photoIds = new long[restaurantIds.length];
             for (int i = 0; i < restaurantIds.length; i++) { // update details, insert reviews
                 if (restaurantIds[i] > 0) {
-                    Pair<Place, Long> details = RestaurantService.details(restaurantIds[i],
-                            restaurants.get(i));
-                    places[i] = details.first;
-                    photoIds[i] = details.second;
+                    try {
+                        Pair<Place, Long> details = RestaurantService.details(restaurantIds[i],
+                                restaurants.get(i));
+                        places[i] = details.first;
+                        photoIds[i] = details.second;
+                    } catch (IOException e) {
+                        Log.e(TAG, "getting place details", e);
+                        exception(e);
+                    }
                 }
             }
             for (int i = 0; i < restaurantIds.length; i++) { // download photos
@@ -89,6 +97,7 @@ public class InitService extends IntentService {
                         RestaurantService.photo(photoIds[i], restaurantIds[i], places[i]);
                     } catch (IOException e) {
                         Log.e(TAG, "downloading restaurant photo", e);
+                        exception(e);
                     }
                 }
             }

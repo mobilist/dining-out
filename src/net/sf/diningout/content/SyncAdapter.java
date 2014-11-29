@@ -27,7 +27,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.SyncResult;
-import android.content.res.Resources;
 import android.database.CursorJoiner;
 import android.database.CursorJoiner.Result;
 import android.graphics.Bitmap;
@@ -71,12 +70,15 @@ import net.sf.diningout.provider.Contract.Columns;
 import net.sf.diningout.provider.Contract.Contacts;
 import net.sf.diningout.provider.Contract.RestaurantPhotos;
 import net.sf.diningout.provider.Contract.Restaurants;
+import net.sf.diningout.provider.Contract.ReviewDrafts;
+import net.sf.diningout.provider.Contract.ReviewDraftsJoinRestaurants;
 import net.sf.diningout.provider.Contract.Reviews;
 import net.sf.diningout.provider.Contract.ReviewsJoinAll;
 import net.sf.diningout.provider.Contract.ReviewsJoinContacts;
 import net.sf.diningout.provider.Contract.ReviewsJoinRestaurants;
 import net.sf.diningout.provider.Contract.Syncs;
 import net.sf.sprockets.content.Managers;
+import net.sf.sprockets.database.Cursors;
 import net.sf.sprockets.database.EasyCursor;
 import net.sf.sprockets.net.Uris;
 import net.sf.sprockets.preference.Prefs;
@@ -116,10 +118,15 @@ import static net.sf.diningout.provider.Contract.CALL_UPDATE_RESTAURANT_LAST_VIS
 import static net.sf.diningout.provider.Contract.CALL_UPDATE_RESTAURANT_RATING;
 import static net.sf.diningout.provider.Contract.EXTRA_HAS_RESTAURANTS;
 import static net.sf.diningout.provider.Contract.SYNC_EXTRAS_CONTACTS_ONLY;
+import static net.sf.sprockets.app.SprocketsApplication.cr;
+import static net.sf.sprockets.app.SprocketsApplication.res;
 import static net.sf.sprockets.content.Content.SYNC_EXTRAS_DOWNLOAD;
 import static net.sf.sprockets.database.sqlite.SQLite.alias;
-import static net.sf.sprockets.database.sqlite.SQLite.aliased;
+import static net.sf.sprockets.database.sqlite.SQLite.alias_;
+import static net.sf.sprockets.database.sqlite.SQLite.aliased_;
 import static net.sf.sprockets.database.sqlite.SQLite.millis;
+import static net.sf.sprockets.gms.analytics.Trackers.event;
+import static net.sf.sprockets.gms.analytics.Trackers.exception;
 
 /**
  * Synchronises the content provider with the server.
@@ -138,6 +145,10 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter {
      * Reviews content URI specifying that the caller is a sync adapter.
      */
     private static final Uri REVIEWS_URI = Uris.callerIsSyncAdapter(Reviews.CONTENT_URI);
+    /**
+     * Review drafts content URI specifying that the caller is a sync adapter.
+     */
+    private static final Uri REVIEW_DRAFTS_URI = Uris.callerIsSyncAdapter(ReviewDrafts.CONTENT_URI);
     /**
      * Syncs content URI specifying that the caller is a sync adapter.
      */
@@ -167,7 +178,7 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter {
                 initUser(context, provider);
             }
             if (extras.getBoolean(SYNC_EXTRAS_CONTACTS_ONLY)) {
-                syncContacts(context, provider);
+                syncContacts(provider);
                 uploadContacts(context, provider);
                 return;
             }
@@ -179,16 +190,17 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter {
                     || now - prefs.getLong(LAST_SYNC, 0L) >= DAY_IN_MILLIS) {
                 extras.putBoolean(SYNC_EXTRAS_UPLOAD, true);
                 extras.putBoolean(SYNC_EXTRAS_DOWNLOAD, true);
-                syncContacts(context, provider);
+                syncContacts(provider);
             }
             if (extras.containsKey(SYNC_EXTRAS_UPLOAD)
                     || extras.containsKey(SYNC_EXTRAS_DOWNLOAD)) {
                 uploadContacts(context, provider);
                 uploadRestaurants(provider);
                 uploadReviews(provider);
+                uploadReviewDrafts(provider);
             }
             if (extras.containsKey(SYNC_EXTRAS_DOWNLOAD)) {
-                download(context, provider);
+                download(provider);
                 prefs.edit().putLong(LAST_SYNC, now).apply();
                 if (prefs.getBoolean(SHOW_SYNC_NOTIFICATIONS, false)) {
                     notify(context, provider);
@@ -202,6 +214,7 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter {
             }
         } catch (RemoteException e) {
             Log.e(TAG, "syncing the ContentProvider", e);
+            exception(e);
         }
     }
 
@@ -238,14 +251,14 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter {
      * Insert new system contacts, delete orphaned app contacts, and synchronise any changes to
      * existing.
      */
-    private void syncContacts(Context context, ContentProviderClient cp) throws RemoteException {
+    private void syncContacts(ContentProviderClient cp) throws RemoteException {
         /* get system contacts */
         String[] proj = {Email.ADDRESS, ContactsContract.Contacts.LOOKUP_KEY,
                 RawContacts.CONTACT_ID, ContactsContract.Contacts.DISPLAY_NAME};
         String sel = Email.IN_VISIBLE_GROUP + " = 1 AND " + Email.ADDRESS + " <> ?";
         String[] args = {Accounts.selected().name};
-        EasyCursor sys = new EasyCursor(context.getContentResolver().query(Email.CONTENT_URI, proj,
-                sel, args, Email.ADDRESS));
+        EasyCursor sys = new EasyCursor(cr().query(Email.CONTENT_URI, proj, sel, args,
+                Email.ADDRESS));
         /* get app contacts */
         proj = new String[]{Contacts.EMAIL, Contacts.ANDROID_LOOKUP_KEY, Contacts.ANDROID_ID,
                 Contacts.NAME, _ID, Contacts.FOLLOWING, Contacts.STATUS_ID};
@@ -331,8 +344,9 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter {
      */
     private void uploadRestaurants(ContentProviderClient cp) throws RemoteException {
         String[] proj = {_ID, Restaurants.GLOBAL_ID, Restaurants.GOOGLE_ID,
-                Restaurants.GOOGLE_REFERENCE, Restaurants.NAME, Restaurants.NOTES,
-                Restaurants.STATUS_ID, Restaurants.DIRTY, Restaurants.VERSION};
+                Restaurants.GOOGLE_REFERENCE, Restaurants.NAME, Restaurants.ADDRESS,
+                Restaurants.INTL_PHONE, Restaurants.URL, Restaurants.NOTES, Restaurants.STATUS_ID,
+                Restaurants.DIRTY, Restaurants.VERSION};
         String sel = Restaurants.DIRTY + " = 1";
         List<Restaurant> restaurants = Restaurants.from(cp.query(RESTAURANTS_URI, proj, sel, null,
                 null));
@@ -345,20 +359,37 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter {
      * Upload review changes to the server.
      */
     private void uploadReviews(ContentProviderClient cp) throws RemoteException {
-        String[] proj = {ReviewsJoinRestaurants.REVIEW__ID + " AS " + _ID,
-                ReviewsJoinRestaurants.REVIEW_GLOBAL_ID + " AS " + Reviews.GLOBAL_ID,
+        String[] proj = {alias(ReviewsJoinRestaurants.REVIEW__ID),
+                alias(ReviewsJoinRestaurants.REVIEW_GLOBAL_ID),
                 ReviewsJoinRestaurants.RESTAURANT_GLOBAL_ID + " AS " + Reviews.RESTAURANT_ID,
-                Reviews.COMMENTS, ReviewsJoinRestaurants.REVIEW_RATING + " AS " + Reviews.RATING,
-                Reviews.WRITTEN_ON,
-                ReviewsJoinRestaurants.REVIEW_STATUS_ID + " AS " + Reviews.STATUS_ID,
-                ReviewsJoinRestaurants.REVIEW_DIRTY + " AS " + Reviews.DIRTY,
-                ReviewsJoinRestaurants.REVIEW_VERSION + " AS " + Reviews.VERSION};
+                Reviews.COMMENTS, alias(ReviewsJoinRestaurants.REVIEW_RATING),
+                Reviews.WRITTEN_ON, alias(ReviewsJoinRestaurants.REVIEW_STATUS_ID),
+                alias(ReviewsJoinRestaurants.REVIEW_DIRTY),
+                alias(ReviewsJoinRestaurants.REVIEW_VERSION)};
         String sel = Reviews.TYPE_ID + " = ? AND " + ReviewsJoinRestaurants.REVIEW_DIRTY + " = 1";
         String[] args = {String.valueOf(PRIVATE.id)};
         List<Review> reviews = Reviews.from(cp.query(ReviewsJoinRestaurants.CONTENT_URI, proj, sel,
                 args, null));
         if (reviews != null) {
             response(Server.syncReviews(reviews), cp, REVIEWS_URI);
+        }
+    }
+
+    /**
+     * Upload review draft changes to the server.
+     */
+    private void uploadReviewDrafts(ContentProviderClient cp) throws RemoteException {
+        String[] proj = {ReviewDrafts.RESTAURANT_ID + " AS " + _ID,
+                Restaurants.GLOBAL_ID + " AS " + ReviewDrafts.RESTAURANT_ID, ReviewDrafts.COMMENTS,
+                alias(ReviewDraftsJoinRestaurants.REVIEW_DRAFT_RATING),
+                alias(ReviewDraftsJoinRestaurants.REVIEW_DRAFT_STATUS_ID),
+                alias(ReviewDraftsJoinRestaurants.REVIEW_DRAFT_DIRTY),
+                alias(ReviewDraftsJoinRestaurants.REVIEW_DRAFT_VERSION)};
+        String sel = ReviewDraftsJoinRestaurants.REVIEW_DRAFT_DIRTY + " = 1";
+        List<Review> drafts = Reviews.from(cp.query(ReviewDraftsJoinRestaurants.CONTENT_URI, proj,
+                sel, null, null));
+        if (drafts != null) {
+            response(Server.syncReviewDrafts(drafts), cp, REVIEW_DRAFTS_URI);
         }
     }
 
@@ -376,13 +407,16 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter {
         String sel = Columns.VERSION + " = ?";
         String[] args = new String[1];
         for (Synced synced : synceds) {
-            vals.put(Columns.GLOBAL_ID, synced.globalId > 0 ? synced.globalId : null);
+            if (!uri.equals(REVIEW_DRAFTS_URI)) {
+                vals.put(Columns.GLOBAL_ID, synced.globalId > 0 ? synced.globalId : null);
+            }
             vals.put(Columns.DIRTY, synced.dirty);
             args[0] = String.valueOf(synced.version);
             try {
                 cp.update(ContentUris.withAppendedId(uri, synced.localId), vals, sel, args);
             } catch (RemoteException e) { // probably global_id conflict, just mark not dirty
                 Log.e(TAG, "updating synchronised object, trying again without global_id", e);
+                exception(e);
                 vals.remove(Columns.GLOBAL_ID);
                 cp.update(ContentUris.withAppendedId(uri, synced.localId), vals, sel, args);
             }
@@ -392,7 +426,7 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter {
     /**
      * Download changes from the server and synchronise them with the content provider.
      */
-    private void download(Context context, ContentProviderClient cp) throws RemoteException {
+    private void download(ContentProviderClient cp) throws RemoteException {
         Syncing syncing = Server.sync();
         if (syncing != null) {
             if (syncing.users != null) {
@@ -411,7 +445,12 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter {
             }
             if (syncing.reviews != null) {
                 for (Sync<Review> sync : syncing.reviews) {
-                    syncReview(context, cp, sync);
+                    syncReview(cp, sync);
+                }
+            }
+            if (syncing.reviewDrafts != null) {
+                for (Sync<Review> sync : syncing.reviewDrafts) {
+                    syncReviewDraft(cp, sync);
                 }
             }
         }
@@ -453,19 +492,31 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter {
         Restaurant restaurant = sync.object;
         switch (sync.action) {
             case INSERT:
-                restaurant.localId = ContentUris.parseId(
-                        cp.insert(RESTAURANTS_URI, Restaurants.values(restaurant)));
+                ContentValues vals = Restaurants.values(restaurant);
+                restaurant.localId = ContentUris.parseId(cp.insert(RESTAURANTS_URI, vals));
                 if (restaurant.localId > 0 && restaurant.status == ACTIVE) {
                     RestaurantService.download(restaurant.localId);
+                    try {
+                        RestaurantService.photo(restaurant.localId, vals);
+                    } catch (IOException e) {
+                        Log.e(TAG, "downloading Street View image", e);
+                        exception(e);
+                    }
                 }
                 break;
             case UPDATE:
-                ContentValues vals = new ContentValues(2);
-                vals.put(Restaurants.NOTES, restaurant.notes);
-                vals.put(Restaurants.STATUS_ID, restaurant.status.id);
-                String sel = Restaurants.GLOBAL_ID + " = ?";
-                String[] args = {String.valueOf(restaurant.globalId)};
-                if (cp.update(RESTAURANTS_URI, vals, sel, args) == 0) { // re-added on other device
+                restaurant.localId = Restaurants.idForGlobalId(restaurant.globalId);
+                if (restaurant.localId > 0) {
+                    vals = Restaurants.values(restaurant);
+                    cp.update(ContentUris.withAppendedId(RESTAURANTS_URI, restaurant.localId),
+                            vals, null, null);
+                    try {
+                        RestaurantService.photo(restaurant.localId, vals);
+                    } catch (IOException e) {
+                        Log.e(TAG, "downloading Street View image", e);
+                        exception(e);
+                    }
+                } else { // re-added on other device
                     sync.action = INSERT;
                     syncRestaurant(cp, sync);
                 }
@@ -476,8 +527,7 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter {
     /**
      * Sync remote changes to a review.
      */
-    private void syncReview(Context context, ContentProviderClient cp, Sync<Review> sync)
-            throws RemoteException {
+    private void syncReview(ContentProviderClient cp, Sync<Review> sync) throws RemoteException {
         Review review = sync.object;
         switch (review.status) {
             case ACTIVE:
@@ -506,13 +556,31 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter {
                 break;
         }
         /* update restaurant rating and last visit if own review */
-        ContentResolver cr = context.getContentResolver(); // cp.call added in API 17
         String id = String.valueOf(Restaurants.idForGlobalId(review.restaurantId));
         if (sync.action != INSERT) { // already called in add
-            cr.call(AUTHORITY_URI, CALL_UPDATE_RESTAURANT_RATING, id, null);
+            cr().call(AUTHORITY_URI, CALL_UPDATE_RESTAURANT_RATING, id, null);
         }
         if (review.userId == 0 && sync.action != UPDATE) {
-            cr.call(AUTHORITY_URI, CALL_UPDATE_RESTAURANT_LAST_VISIT, id, null);
+            cr().call(AUTHORITY_URI, CALL_UPDATE_RESTAURANT_LAST_VISIT, id, null);
+        }
+    }
+
+    /**
+     * Sync remote changes to a review draft.
+     */
+    private void syncReviewDraft(ContentProviderClient cp, Sync<Review> sync)
+            throws RemoteException {
+        ContentValues vals = ReviewDrafts.values(sync.object);
+        /* get current version and increment it */
+        Uri uri = ContentUris.withAppendedId(REVIEW_DRAFTS_URI,
+                vals.getAsLong(ReviewDrafts.RESTAURANT_ID));
+        String[] proj = {ReviewDrafts.VERSION};
+        long version = Cursors.firstLong(cp.query(uri, proj, null, null, null));
+        if (version >= 0) {
+            vals.put(ReviewDrafts.VERSION, version + 1);
+            cp.update(uri, vals, null, null);
+        } else {
+            cp.insert(REVIEW_DRAFTS_URI, vals);
         }
     }
 
@@ -532,9 +600,8 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter {
             Collection<CharSequence> lines = new LinkedHashSet<>(); // no dupes
             long when = 0L;
             Bitmap icon = null;
-            Resources res = context.getResources();
-            int w = res.getDimensionPixelSize(android.R.dimen.notification_large_icon_width);
-            int h = res.getDimensionPixelSize(android.R.dimen.notification_large_icon_height);
+            int w = android.R.dimen.notification_large_icon_width;
+            int h = android.R.dimen.notification_large_icon_height;
             /* get the change details */
             while (c.moveToNext()) {
                 Uri photo = null;
@@ -560,7 +627,8 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter {
                 }
                 if (photo != null && photo != Uri.EMPTY) {
                     try {
-                        icon = Picasso.with(context).load(photo).resize(w, h).centerCrop().get();
+                        icon = Picasso.with(context).load(photo).resizeDimen(w, h).centerCrop()
+                                .get();
                     } catch (IOException e) { // contact or own restaurant may not have photo
                         Log.w(TAG, "loading contact or restaurant photo", e);
                     }
@@ -569,13 +637,13 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter {
             /* build the title */
             StringBuilder title = new StringBuilder(32);
             if (users > 0) {
-                title.append(res.getQuantityString(R.plurals.n_new_friends, users, users));
+                title.append(res().getQuantityString(R.plurals.n_new_friends, users, users));
             }
             if (reviews > 0) {
                 if (title.length() > 0) {
                     title.append(context.getString(R.string.delimiter));
                 }
-                title.append(res.getQuantityString(R.plurals.n_new_reviews, reviews, reviews));
+                title.append(res().getQuantityString(R.plurals.n_new_reviews, reviews, reviews));
             }
             if (title.length() > 0) { // figure out where to go
                 Intent activity;
@@ -587,8 +655,9 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter {
                 } else {
                     activity = new Intent(context, NotificationsActivity.class);
                 }
-                Notifications.inboxStyle(ID_SYNC, title, lines, when, icon, users + reviews,
-                        activity);
+                int items = users + reviews;
+                Notifications.inboxStyle(ID_SYNC, title, lines, when, icon, items, activity);
+                event("notification", "notify", "items", items);
             } else { // sync object was deleted
                 Managers.notification(context).cancel(ID_SYNC);
                 context.startService(new Intent(context, SyncsReadService.class));
@@ -641,20 +710,20 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter {
                                          Bitmap icon) throws RemoteException {
         Uri photo = null;
         long restaurantId = 0L;
-        String[] proj = {Reviews.RESTAURANT_ID, alias(ReviewsJoinRestaurants.RESTAURANT_NAME),
-                alias(ReviewsJoinContacts.CONTACT_NAME)};
+        String[] proj = {Reviews.RESTAURANT_ID, alias_(ReviewsJoinRestaurants.RESTAURANT_NAME),
+                alias_(ReviewsJoinContacts.CONTACT_NAME)};
         String sel = Reviews.TYPE_ID + " = ? AND " + ReviewsJoinRestaurants.REVIEW_STATUS_ID
                 + " = ? AND " + ReviewsJoinRestaurants.RESTAURANT_STATUS_ID + " = ?";
         String[] args = StringArrays.from(PRIVATE.id, ACTIVE.id, ACTIVE.id);
-        Uri uri = ContentUris.withAppendedId(ReviewsJoinAll.CONTENT_URI, id);
-        EasyCursor c = new EasyCursor(cp.query(uri, proj, sel, args, null));
+        EasyCursor c = new EasyCursor(cp.query(
+                ContentUris.withAppendedId(ReviewsJoinAll.CONTENT_URI, id), proj, sel, args, null));
         if (c.moveToFirst()) {
-            String contact = c.getString(aliased(ReviewsJoinContacts.CONTACT_NAME));
+            String contact = c.getString(aliased_(ReviewsJoinContacts.CONTACT_NAME));
             if (contact == null) {
                 contact = context.getString(R.string.non_contact);
             }
             lines.add(context.getString(R.string.new_review, contact,
-                    c.getString(aliased(ReviewsJoinRestaurants.RESTAURANT_NAME))));
+                    c.getString(aliased_(ReviewsJoinRestaurants.RESTAURANT_NAME))));
             restaurantId = c.getLong(Reviews.RESTAURANT_ID);
             photo = icon == null ? RestaurantPhotos.uriForRestaurant(restaurantId) : Uri.EMPTY;
         }
@@ -668,9 +737,8 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter {
      * @return null if the cloud ID could not be retrieved or sent to the server successfully
      */
     private String uploadCloudId(Context context) {
-        Resources res = context.getResources();
-        int retries = res.getInteger(R.integer.backoff_retries);
-        String projectNumber = res.getString(R.string.project_number);
+        int retries = res().getInteger(R.integer.backoff_retries);
+        String projectNumber = res().getString(R.string.project_number);
         for (int i = 0; i < retries; i++) {
             try {
                 String id = GoogleCloudMessaging.getInstance(context).register(projectNumber);
@@ -680,9 +748,13 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter {
                 }
             } catch (IOException e) {
                 Log.e(TAG, "registering with GCM", e);
+                exception(e);
             }
             if (i + 1 < retries) {
                 SystemClock.sleep((1 << i) * 1000); // wait and retry, apparently register can error
+                event("gcm", "register retry", i + 1);
+            } else {
+                event("gcm", "couldn't register after retries", retries);
             }
         }
         return null;

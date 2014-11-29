@@ -22,11 +22,11 @@ import android.os.Bundle;
 import android.preference.PreferenceManager;
 
 import com.google.android.gms.analytics.GoogleAnalytics;
-import com.google.android.gms.analytics.Tracker;
 
 import net.sf.diningout.R;
 import net.sf.diningout.accounts.Accounts;
 import net.sf.sprockets.app.VersionedApplication;
+import net.sf.sprockets.gms.analytics.Trackers;
 import net.sf.sprockets.preference.Prefs;
 
 import org.apache.commons.io.FileUtils;
@@ -38,11 +38,9 @@ import static net.sf.diningout.preference.Keys.CLOUD_ID;
 import static net.sf.diningout.provider.Contract.AUTHORITY;
 
 /**
- * Provides services and performs application update tasks.
+ * Performs application update tasks.
  */
 public class AppApplication extends VersionedApplication {
-    private static Tracker sTracker;
-
     @Override
     public void onCreate() {
         super.onCreate();
@@ -51,14 +49,7 @@ public class AppApplication extends VersionedApplication {
         if (!Prefs.getBoolean(this, ALLOW_ANALYTICS)) {
             ga.setAppOptOut(true);
         }
-        sTracker = ga.newTracker(R.xml.tracker);
-    }
-
-    /**
-     * Get the application's Google Analytics tracker.
-     */
-    public static Tracker tracker() {
-        return sTracker;
+        Trackers.use(this, ga.newTracker(R.xml.tracker));
     }
 
     @Override

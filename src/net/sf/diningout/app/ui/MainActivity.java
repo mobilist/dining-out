@@ -18,19 +18,18 @@
 package net.sf.diningout.app.ui;
 
 import android.app.Activity;
-import android.app.Dialog;
+import android.content.DialogInterface;
+import android.content.DialogInterface.OnCancelListener;
 import android.content.Intent;
 import android.os.Bundle;
 
 import com.google.android.gms.common.GooglePlayServicesUtil;
 
-import net.sf.sprockets.app.ui.SprocketsDialogFragment;
 import net.sf.sprockets.preference.Prefs;
-
-import icepick.Icicle;
 
 import static com.google.android.gms.common.ConnectionResult.SUCCESS;
 import static net.sf.diningout.preference.Keys.ONBOARDED;
+import static net.sf.sprockets.gms.analytics.Trackers.event;
 
 /**
  * Verifies that the required version of Google Play Services is available and then forwards to
@@ -55,7 +54,13 @@ public class MainActivity extends Activity {
                     ? InitActivity.class : RestaurantsActivity.class));
             finish();
         } else {
-            ErrorDialog.newInstance(status).show(getFragmentManager(), null);
+            GooglePlayServicesUtil.showErrorDialogFragment(status, this, 0, new OnCancelListener() {
+                @Override
+                public void onCancel(DialogInterface dialog) {
+                    finish();
+                }
+            });
+            event("gms", "not available", GooglePlayServicesUtil.getErrorString(status));
         }
     }
 
@@ -63,27 +68,5 @@ public class MainActivity extends Activity {
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         tryToContinue();
-    }
-
-    /**
-     * Provides an error dialog from Google Play Services.
-     */
-    public static class ErrorDialog extends SprocketsDialogFragment {
-        @Icicle
-        int mStatus;
-
-        /**
-         * Create a dialog for the status code from Google Play Services.
-         */
-        public static ErrorDialog newInstance(int status) {
-            ErrorDialog dialog = new ErrorDialog();
-            dialog.mStatus = status;
-            return dialog;
-        }
-
-        @Override
-        public Dialog onCreateDialog(Bundle savedInstanceState) {
-            return GooglePlayServicesUtil.getErrorDialog(mStatus, getActivity(), 0);
-        }
     }
 }

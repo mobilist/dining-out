@@ -17,21 +17,18 @@
 
 package net.sf.diningout.app.ui;
 
-import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.Dialog;
 import android.app.DialogFragment;
 import android.app.LoaderManager;
 import android.app.LoaderManager.LoaderCallbacks;
-import android.content.ContentResolver;
+import android.content.ComponentName;
 import android.content.ContentUris;
 import android.content.ContentValues;
-import android.content.CursorLoader;
 import android.content.DialogInterface;
 import android.content.DialogInterface.OnClickListener;
 import android.content.Intent;
 import android.content.Loader;
-import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.text.TextUtils;
@@ -47,6 +44,7 @@ import android.widget.CursorAdapter;
 import android.widget.EditText;
 import android.widget.ListView;
 import android.widget.ShareActionProvider;
+import android.widget.ShareActionProvider.OnShareTargetSelectedListener;
 import android.widget.Spinner;
 import android.widget.TextView;
 
@@ -61,6 +59,7 @@ import net.sf.diningout.provider.Contract.ReviewsJoinContacts;
 import net.sf.diningout.undobar.Undoer;
 import net.sf.diningout.widget.ReviewAdapter;
 import net.sf.sprockets.app.ui.SprocketsDialogFragment;
+import net.sf.sprockets.content.EasyCursorLoader;
 import net.sf.sprockets.content.Intents;
 import net.sf.sprockets.content.res.Themes;
 import net.sf.sprockets.database.EasyCursor;
@@ -88,12 +87,15 @@ import static net.sf.diningout.data.Status.DELETED;
 import static net.sf.diningout.provider.Contract.AUTHORITY_URI;
 import static net.sf.diningout.provider.Contract.CALL_UPDATE_RESTAURANT_LAST_VISIT;
 import static net.sf.diningout.provider.Contract.CALL_UPDATE_RESTAURANT_RATING;
+import static net.sf.sprockets.app.SprocketsApplication.cr;
+import static net.sf.sprockets.app.SprocketsApplication.res;
 import static net.sf.sprockets.database.sqlite.SQLite.millis;
+import static net.sf.sprockets.gms.analytics.Trackers.event;
 
 /**
  * Displays a list of reviews for a restaurant.
  */
-public class ReviewsFragment extends TabListFragment implements LoaderCallbacks<Cursor> {
+public class ReviewsFragment extends TabListFragment implements LoaderCallbacks<EasyCursor> {
     private static final int LOADER_REVIEWS = 0;
     private static final int LOADER_REVIEW_DRAFT = 1;
     private static final int DEFAULT_RATING_POS = 2;
@@ -107,6 +109,9 @@ public class ReviewsFragment extends TabListFragment implements LoaderCallbacks<
      */
     @Icicle
     boolean mEditing;
+    /**
+     * Review being edited or 0.
+     */
     @Icicle
     long mReviewId;
     @Icicle
@@ -143,15 +148,14 @@ public class ReviewsFragment extends TabListFragment implements LoaderCallbacks<
         list.setDrawSelectorOnTop(true);
         list.setChoiceMode(CHOICE_MODE_MULTIPLE_MODAL);
         list.setMultiChoiceModeListener(new ChoiceListener());
-        setListAdapter(new ReviewAdapter(getActivity()));
+        setListAdapter(new ReviewAdapter(a));
         if (mEditing) {
             list.postDelayed(new Runnable() {
                 @Override
                 public void run() {
-                    if (!isResumed()) {
-                        return;
+                    if (isResumed()) {
+                        editReview(TextUtils.getTrimmedLength(mComments) > 0);
                     }
-                    editReview(TextUtils.getTrimmedLength(mComments) > 0);
                 }
             }, 500L); // wait for list to settle so scroll, focus, and showing input method may work
         }
@@ -168,7 +172,7 @@ public class ReviewsFragment extends TabListFragment implements LoaderCallbacks<
     }
 
     @Override
-    public Loader<Cursor> onCreateLoader(int id, Bundle args) {
+    public Loader<EasyCursor> onCreateLoader(int id, Bundle args) {
         Uri uri = null;
         String[] proj = null;
         String sel = null;
@@ -199,21 +203,18 @@ public class ReviewsFragment extends TabListFragment implements LoaderCallbacks<
             case LOADER_REVIEW_DRAFT:
                 uri = ContentUris.withAppendedId(ReviewDrafts.CONTENT_URI, mRestaurantId);
                 proj = new String[]{ReviewDrafts.COMMENTS, ReviewDrafts.RATING,
-                        ReviewDrafts.VERSION};
-                sel = ReviewDrafts.STATUS_ID + " = ?";
-                selArgs = new String[]{String.valueOf(ACTIVE.id)};
+                        ReviewDrafts.STATUS_ID, ReviewDrafts.VERSION};
                 break;
         }
-        return new CursorLoader(getActivity(), uri, proj, sel, selArgs, order);
+        return new EasyCursorLoader(a, uri, proj, sel, selArgs, order);
     }
 
     @Override
-    public void onLoadFinished(Loader<Cursor> loader, Cursor data) {
+    public void onLoadFinished(Loader<EasyCursor> loader, EasyCursor data) {
         switch (loader.getId()) {
             case LOADER_REVIEWS:
-                ((CursorAdapter) getListAdapter()).swapCursor(new EasyCursor(data));
+                ((CursorAdapter) getListAdapter()).swapCursor(data);
                 updateActionMode();
-                Activity a = getActivity();
                 switch (Type.get(mTypeId)) {
                     case PRIVATE:
                         if (!mEditing && data.getCount() == 0) {
@@ -226,8 +227,8 @@ public class ReviewsFragment extends TabListFragment implements LoaderCallbacks<
                         ListView list = getListView();
                         if (data.getCount() == 0) {
                             if (list.getHeaderViewsCount() == 1) { // add header View
-                                View view = a.getLayoutInflater().inflate(
-                                        R.layout.reviews_public_empty, list, false);
+                                View view = a.getLayoutInflater()
+                                        .inflate(R.layout.reviews_public_empty, list, false);
                                 list.addHeaderView(view);
                                 ButterKnife.inject(this, view);
                             }
@@ -239,14 +240,19 @@ public class ReviewsFragment extends TabListFragment implements LoaderCallbacks<
                 break;
             case LOADER_REVIEW_DRAFT:
                 if (data.moveToFirst()) {
-                    EasyCursor c = new EasyCursor(data);
-                    long version = c.getLong(ReviewDrafts.VERSION);
-                    if (version != mDraftVersion) {
-                        EditReviewHolder review = !mEditing ? editReview(false) : getReview();
-                        review.mRatings.setSelection(c.getInt(ReviewDrafts.RATING) - 1);
-                        review.mComments.setText(c.getString(ReviewDrafts.COMMENTS));
-                        mDraftVersion = version;
+                    long version = data.getLong(ReviewDrafts.VERSION);
+                    if (mReviewId == 0) {
+                        Status status = Status.get(data.getInt(ReviewDrafts.STATUS_ID));
+                        if (status == ACTIVE && version != mDraftVersion) {
+                            EditReviewHolder review = !mEditing ? editReview(false) : getReview();
+                            review.mRatings.setSelection(data.getInt(ReviewDrafts.RATING) - 1);
+                            review.mComments.setText(data.getString(ReviewDrafts.COMMENTS));
+                        } else if (status == DELETED && mEditing && getReview() != null
+                                && mDraftVersion >= 0 && version > mDraftVersion) {
+                            discardReview();
+                        }
                     }
+                    mDraftVersion = version;
                 }
                 break;
         }
@@ -257,13 +263,12 @@ public class ReviewsFragment extends TabListFragment implements LoaderCallbacks<
      */
     private void updateActionMode() {
         if (mActionMode != null) {
-            Activity a = getActivity();
             ListView list = getListView();
             int count = list.getCheckedItemCount();
             if (count > 0) {
                 mActionMode.setTitle(getString(R.string.n_selected, count));
                 mActionMode.invalidate();
-                String subject = getResources().getQuantityString(R.plurals.reviews_share, count,
+                String subject = res().getQuantityString(R.plurals.reviews_share, count,
                         a.getTitle());
                 mShare.putExtra(EXTRA_SUBJECT, subject);
                 StringBuilder text = new StringBuilder(512 * count);
@@ -309,7 +314,7 @@ public class ReviewsFragment extends TabListFragment implements LoaderCallbacks<
                 editReview(true);
                 return true;
             case R.id.done:
-                if (getReview().mComments.getText().toString().trim().length() == 0) { // confirm
+                if (TextUtils.getTrimmedLength(getReview().mComments.getText()) == 0) { // confirm
                     DialogFragment dialog = new EmptyReviewDialog();
                     dialog.setTargetFragment(this, 0);
                     dialog.show(getFragmentManager(), null);
@@ -318,10 +323,23 @@ public class ReviewsFragment extends TabListFragment implements LoaderCallbacks<
                 item.setEnabled(false); // prevent double tap due to delayed menu invalidate
                 saveReview(); // and then fall through to discard draft
             case R.id.discard:
-                discardReview();
+                discard();
                 return true;
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    /**
+     * Cancel the adding or editing of a review.
+     */
+    private void discard() {
+        if (mReviewId == 0) {
+            if (deleteDraft() == 0) {
+                discardReview();
+            }
+        } else {
+            discardReview();
+        }
     }
 
     /**
@@ -330,13 +348,13 @@ public class ReviewsFragment extends TabListFragment implements LoaderCallbacks<
     public static class EmptyReviewDialog extends SprocketsDialogFragment {
         @Override
         public Dialog onCreateDialog(Bundle savedInstanceState) {
-            return new AlertDialog.Builder(getActivity()).setTitle(R.string.add_empty_review)
+            return new AlertDialog.Builder(a).setTitle(R.string.add_empty_review)
                     .setPositiveButton(android.R.string.yes, new OnClickListener() {
                         @Override
                         public void onClick(DialogInterface dialog, int which) {
                             ReviewsFragment frag = (ReviewsFragment) getTargetFragment();
                             frag.saveReview();
-                            frag.discardReview();
+                            frag.discard();
                         }
                     }).setNegativeButton(android.R.string.no, null).create();
         }
@@ -346,7 +364,6 @@ public class ReviewsFragment extends TabListFragment implements LoaderCallbacks<
      * Add a header View for adding or editing a review and, optionally, scroll to it.
      */
     private EditReviewHolder editReview(boolean scroll) {
-        Activity a = getActivity();
         ListView list = getListView();
         View view = a.getLayoutInflater().inflate(R.layout.reviews_edit, list, false);
         EditReviewHolder r = EditReviewHolder.from(view);
@@ -377,18 +394,18 @@ public class ReviewsFragment extends TabListFragment implements LoaderCallbacks<
         ContentValues vals = new ContentValues(4);
         vals.put(Reviews.COMMENTS, review.mComments.getText().toString().trim());
         vals.put(Reviews.RATING, review.mRatings.getSelectedItemPosition() + 1);
-        ContentResolver cr = getActivity().getContentResolver();
         String restaurantId = String.valueOf(mRestaurantId);
         if (mReviewId == 0) {
             vals.put(Reviews.RESTAURANT_ID, mRestaurantId);
             vals.put(Reviews.TYPE_ID, mTypeId);
-            cr.insert(Reviews.CONTENT_URI, vals);
-            cr.call(AUTHORITY_URI, CALL_UPDATE_RESTAURANT_LAST_VISIT, restaurantId, null);
+            cr().insert(Reviews.CONTENT_URI, vals);
+            cr().call(AUTHORITY_URI, CALL_UPDATE_RESTAURANT_LAST_VISIT, restaurantId, null);
         } else {
             vals.put(Reviews.DIRTY, 1);
-            cr.update(ContentUris.withAppendedId(Reviews.CONTENT_URI, mReviewId), vals, null, null);
+            cr().update(ContentUris.withAppendedId(Reviews.CONTENT_URI, mReviewId), vals, null,
+                    null);
         }
-        cr.call(AUTHORITY_URI, CALL_UPDATE_RESTAURANT_RATING, restaurantId, null);
+        cr().call(AUTHORITY_URI, CALL_UPDATE_RESTAURANT_RATING, restaurantId, null);
     }
 
     /**
@@ -409,7 +426,7 @@ public class ReviewsFragment extends TabListFragment implements LoaderCallbacks<
                     adapter.notifyDataSetChanged(); // ListView only tells own Observer
                     mEditing = false;
                     mReviewId = 0L;
-                    getActivity().invalidateOptionsMenu();
+                    a.invalidateOptionsMenu();
                 } else { // just reset it
                     EditReviewHolder review = getReview();
                     review.mRatings.setSelection(DEFAULT_RATING_POS);
@@ -419,7 +436,6 @@ public class ReviewsFragment extends TabListFragment implements LoaderCallbacks<
         }, 500L); // after input method hidden and cursor hopefully reloaded on slower devices
         mRatingPos = DEFAULT_RATING_POS;
         mComments = null;
-        deleteDraft();
     }
 
     /**
@@ -439,23 +455,25 @@ public class ReviewsFragment extends TabListFragment implements LoaderCallbacks<
     @Optional
     @OnClick(R.id.search)
     void searchWeb() {
-        Activity a = getActivity();
         Intent intent = new Intent(ACTION_WEB_SEARCH)
                 .putExtra(QUERY, getString(R.string.reviews_public_search, a.getTitle()));
         if (Intents.hasActivity(a, intent)) {
             startActivity(intent);
+            event("reviews", "search web");
+        } else {
+            event("reviews", "search web [fail]");
         }
     }
 
     @Override
-    public void onLoaderReset(Loader<Cursor> loader) {
+    public void onLoaderReset(Loader<EasyCursor> loader) {
         ((CursorAdapter) getListAdapter()).swapCursor(null);
     }
 
     @Override
     public void onPause() {
         super.onPause();
-        if (mReviewId == 0 && !getActivity().isChangingConfigurations()) { // save add review draft
+        if (mReviewId == 0 && !a.isChangingConfigurations()) { // save add review draft
             EditReviewHolder review = getReview();
             if (review != null) {
                 if (TextUtils.getTrimmedLength(review.mComments.getText()) > 0) {
@@ -468,20 +486,40 @@ public class ReviewsFragment extends TabListFragment implements LoaderCallbacks<
     }
 
     private void saveDraft(EditReviewHolder review) {
-        ContentResolver cr = getActivity().getContentResolver();
-        ContentValues vals = draftValues(review.mComments.getText().toString(),
-                review.mRatings.getSelectedItemPosition() + 1, ACTIVE);
-        if (cr.update(ContentUris.withAppendedId(ReviewDrafts.CONTENT_URI, mRestaurantId), vals,
-                null, null) == 0) {
+        /* get existing values */
+        String oldComments = null;
+        int oldRating = 0;
+        Uri uri = ContentUris.withAppendedId(ReviewDrafts.CONTENT_URI, mRestaurantId);
+        String[] proj = {ReviewDrafts.COMMENTS, ReviewDrafts.RATING};
+        EasyCursor c = new EasyCursor(cr().query(uri, proj, null, null, null));
+        int count = c.getCount();
+        if (c.moveToNext()) {
+            oldComments = c.getString(ReviewDrafts.COMMENTS);
+            oldRating = c.getInt(ReviewDrafts.RATING);
+        }
+        c.close();
+        /* update if changed or insert if none yet */
+        String newComments = review.mComments.getText().toString();
+        int newRating = review.mRatings.getSelectedItemPosition() + 1;
+        if (count > 0) {
+            if (newRating != oldRating || !newComments.equals(oldComments)) {
+                cr().update(uri, draftValues(newComments, newRating, ACTIVE), null, null);
+            }
+        } else {
+            ContentValues vals = draftValues(newComments, newRating, ACTIVE);
             vals.put(ReviewDrafts.RESTAURANT_ID, mRestaurantId);
-            cr.insert(ReviewDrafts.CONTENT_URI, vals);
+            cr().insert(ReviewDrafts.CONTENT_URI, vals);
         }
     }
 
-    private void deleteDraft() {
-        ContentValues vals = draftValues(null, null, DELETED);
-        getActivity().getContentResolver().update(ContentUris.withAppendedId(
-                ReviewDrafts.CONTENT_URI, mRestaurantId), vals, null, null);
+    /**
+     * @return number of rows updated
+     */
+    private int deleteDraft() { //
+        String sel = ReviewDrafts.STATUS_ID + "<> ?";
+        String[] args = {String.valueOf(Status.DELETED.id)};
+        return cr().update(ContentUris.withAppendedId(ReviewDrafts.CONTENT_URI, mRestaurantId),
+                draftValues(null, null, DELETED), sel, args);
     }
 
     private ContentValues draftValues(String comments, Integer rating, Status status) {
@@ -512,10 +550,19 @@ public class ReviewsFragment extends TabListFragment implements LoaderCallbacks<
             mActionMode = mode;
             mode.getMenuInflater().inflate(R.menu.reviews_cab, menu);
             menu.findItem(R.id.edit).setEnabled(false).setVisible(false);
-            ShareActionProvider share = (ShareActionProvider) menu.findItem(R.id.share)
-                    .getActionProvider();
+            ShareActionProvider share =
+                    (ShareActionProvider) menu.findItem(R.id.share).getActionProvider();
             share.setShareHistoryFileName("review_share_history.xml");
             share.setShareIntent(mShare);
+            share.setOnShareTargetSelectedListener(new OnShareTargetSelectedListener() {
+                @Override
+                public boolean onShareTargetSelected(ShareActionProvider source, Intent intent) {
+                    ComponentName component = intent.getComponent();
+                    event("reviews", "share", component != null ? component.getClassName() : null,
+                            getListView().getCheckedItemCount());
+                    return false;
+                }
+            });
             return true;
         }
 
@@ -568,16 +615,16 @@ public class ReviewsFragment extends TabListFragment implements LoaderCallbacks<
                     return true;
                 case R.id.delete:
                     long[] ids = getListView().getCheckedItemIds();
-                    new Undoer(getActivity(), getString(R.string.n_deleted, ids.length),
+                    new Undoer(a, getString(R.string.n_deleted, ids.length),
                             Reviews.CONTENT_URI, ids, DELETED, ACTIVE, mTypeId == PRIVATE.id) {
                         @Override
                         protected void onUpdate(Uri contentUri, long[] ids, Status status) {
                             super.onUpdate(contentUri, ids, status);
-                            ContentResolver cr = getActivity().getContentResolver();
                             String id = String.valueOf(mRestaurantId);
-                            cr.call(AUTHORITY_URI, CALL_UPDATE_RESTAURANT_RATING, id, null);
+                            cr().call(AUTHORITY_URI, CALL_UPDATE_RESTAURANT_RATING, id, null);
                             if (mTypeId == PRIVATE.id) {
-                                cr.call(AUTHORITY_URI, CALL_UPDATE_RESTAURANT_LAST_VISIT, id, null);
+                                cr().call(AUTHORITY_URI, CALL_UPDATE_RESTAURANT_LAST_VISIT, id,
+                                        null);
                             }
                         }
                     };

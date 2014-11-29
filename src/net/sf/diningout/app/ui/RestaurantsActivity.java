@@ -43,6 +43,8 @@ import static android.support.v4.widget.DrawerLayout.LOCK_MODE_LOCKED_CLOSED;
 import static android.support.v4.widget.DrawerLayout.LOCK_MODE_UNLOCKED;
 import static android.view.Gravity.START;
 import static net.sf.diningout.app.ui.RestaurantActivity.EXTRA_ID;
+import static net.sf.sprockets.app.SprocketsApplication.res;
+import static net.sf.sprockets.gms.analytics.Trackers.event;
 
 /**
  * Displays a list of the user's restaurants.
@@ -64,7 +66,7 @@ public class RestaurantsActivity extends BaseNavigationDrawerActivity
         ab.setDisplayShowTitleEnabled(false);
         ab.setNavigationMode(NAVIGATION_MODE_LIST);
         ArrayAdapter<String> adapter = new ArrayAdapter<>(this, R.layout.restaurants_navigation,
-                R.id.sort, getResources().getStringArray(R.array.restaurants_sort));
+                R.id.sort, res().getStringArray(R.array.restaurants_sort));
         adapter.setDropDownViewResource(R.layout.restaurants_navigation_item);
         ab.setListNavigationCallbacks(adapter, this);
         ab.setSelectedNavigationItem(mSort); // restore when rotating with navigation drawer open
@@ -72,11 +74,15 @@ public class RestaurantsActivity extends BaseNavigationDrawerActivity
         setDrawerLayout(mDrawerLayout);
     }
 
+    private static final String[] sSortEventLabels = {"by name", "by last visit", "by distance",
+            "by rating"};
+
     @Override
     public boolean onNavigationItemSelected(int itemPosition, long itemId) {
         if (mSort != itemPosition) { // reload if option changed
             mSort = itemPosition;
             restaurants().sort(itemPosition);
+            event("restaurants", "sort", sSortEventLabels[itemPosition]);
         }
         return true;
     }

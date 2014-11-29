@@ -44,6 +44,9 @@
     </string-array>
 
     <!-- restaurant -->
+    <string name="add_address">Add street address</string>
+    <string name="add_phone">Add phone number</string>
+    <string name="add_website">Add website</string>
     <string name="tab_private">Private</string>
     <string name="tab_public">Public</string>
     <string name="tab_notes">Notes</string>

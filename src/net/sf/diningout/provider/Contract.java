@@ -20,8 +20,6 @@ package net.sf.diningout.provider;
 import android.content.ContentUris;
 import android.content.ContentValues;
 import android.database.Cursor;
-import android.location.Address;
-import android.location.Geocoder;
 import android.location.Location;
 import android.net.Uri;
 import android.provider.BaseColumns;
@@ -31,6 +29,7 @@ import android.util.Log;
 import com.google.common.base.Strings;
 
 import net.sf.diningout.R;
+import net.sf.diningout.app.RestaurantGeocodeService;
 import net.sf.diningout.data.Restaurant;
 import net.sf.diningout.data.Review;
 import net.sf.diningout.data.Status;
@@ -72,6 +71,7 @@ import static net.sf.sprockets.app.SprocketsApplication.cr;
 import static net.sf.sprockets.app.SprocketsApplication.res;
 import static net.sf.sprockets.database.sqlite.SQLite.datetime;
 import static net.sf.sprockets.database.sqlite.SQLite.normalise;
+import static net.sf.sprockets.gms.analytics.Trackers.exception;
 import static net.sf.sprockets.google.Places.Field.FORMATTED_ADDRESS;
 import static net.sf.sprockets.google.Places.Field.FORMATTED_PHONE_NUMBER;
 import static net.sf.sprockets.google.Places.Field.GEOMETRY;
@@ -213,7 +213,7 @@ public class Contract {
             String[] proj = {_ID};
             String sel = GLOBAL_ID + " = ?";
             String[] args = {String.valueOf(globalId)};
-            return Cursors.firstLong(cr().query(uri, proj, sel, args, null), true);
+            return Cursors.firstLong(cr().query(uri, proj, sel, args, null));
         }
 
         /**
@@ -224,7 +224,7 @@ public class Contract {
         private static long globalIdForId(Uri uri, long id) {
             uri = ContentUris.withAppendedId(uri, id);
             String[] proj = {GLOBAL_ID};
-            return Cursors.firstLong(cr().query(uri, proj, null, null, null), true);
+            return Cursors.firstLong(cr().query(uri, proj, null, null, null));
         }
     }
 
@@ -368,7 +368,7 @@ public class Contract {
             String[] proj = {_ID};
             String sel = EMAIL_HASH + " = ?";
             String[] args = {hash};
-            return Cursors.firstLong(cr().query(CONTENT_URI, proj, sel, args, null), true);
+            return Cursors.firstLong(cr().query(CONTENT_URI, proj, sel, args, null));
         }
     }
 
@@ -557,11 +557,7 @@ public class Contract {
             String[] args = StringArrays.from(restaurant.localId, restaurant.globalId);
             EasyCursor c = new EasyCursor(cr().query(CONTENT_URI, proj, sel, args, null));
             int count = c.getCount();
-            String address = null;
-            if (c.moveToNext()) {
-                address = c.getString(ADDRESS);
-            }
-            c.close();
+            String address = Cursors.firstString(c);
             /* prepare for insert/update */
             ContentValues vals = new ContentValues(16);
             vals.put(GLOBAL_ID, restaurant.globalId);
@@ -580,19 +576,10 @@ public class Contract {
                     vals.put(ADDRESS, restaurant.address);
                     vals.put(VICINITY, restaurant.address);
                     try {
-                        List<Address> locs = new Geocoder(context())
-                                .getFromLocationName(restaurant.address, 1);
-                        if (locs != null && locs.size() > 0) {
-                            Address loc = locs.get(0);
-                            if (loc.hasLatitude() && loc.hasLongitude()) {
-                                double lat = loc.getLatitude();
-                                vals.put(LATITUDE, lat);
-                                vals.put(LONGITUDE, loc.getLongitude());
-                                vals.put(LONGITUDE_COS, Geos.cos(lat));
-                            }
-                        }
+                        RestaurantGeocodeService.geocode(restaurant.address, vals);
                     } catch (IOException e) {
                         Log.e(TAG, "geocoding restaurant address", e);
+                        exception(e);
                     }
                 }
                 vals.put(INTL_PHONE, restaurant.phone);
@@ -628,21 +615,23 @@ public class Contract {
                     if (col >= 0) {
                         restaurant.googleReference = c.getString(col);
                     }
-                    col = c.getColumnIndex(NAME);
-                    if (col >= 0) {
-                        restaurant.name = c.getString(col);
-                    }
-                    col = c.getColumnIndex(ADDRESS);
-                    if (col >= 0) {
-                        restaurant.address = c.getString(col);
-                    }
-                    col = c.getColumnIndex(LOCAL_PHONE);
-                    if (col >= 0) {
-                        restaurant.phone = c.getString(col);
-                    }
-                    col = c.getColumnIndex(URL);
-                    if (col >= 0) {
-                        restaurant.url = c.getString(col);
+                    if (Strings.isNullOrEmpty(restaurant.googleId)) {
+                        col = c.getColumnIndex(NAME);
+                        if (col >= 0) {
+                            restaurant.name = c.getString(col);
+                        }
+                        col = c.getColumnIndex(ADDRESS);
+                        if (col >= 0) {
+                            restaurant.address = c.getString(col);
+                        }
+                        col = c.getColumnIndex(INTL_PHONE);
+                        if (col >= 0) {
+                            restaurant.phone = c.getString(col);
+                        }
+                        col = c.getColumnIndex(URL);
+                        if (col >= 0) {
+                            restaurant.url = c.getString(col);
+                        }
                     }
                     col = c.getColumnIndex(NOTES);
                     if (col >= 0) {
@@ -863,7 +852,7 @@ public class Contract {
          */
         String RESTAURANT_ID = "restaurant_id";
         /**
-         * {@link ReviewType Type} of review.
+         * {@link Review.Type Type} of review.
          */
         String TYPE_ID = "type_id";
         /**
@@ -1127,6 +1116,16 @@ public class Contract {
     }
 
     /**
+     * Unambiguous columns of joined review drafts.
+     */
+    protected interface ReviewDraftsJoinColumns {
+        String REVIEW_DRAFT_RATING = "d.rating";
+        String REVIEW_DRAFT_STATUS_ID = "d.status_id";
+        String REVIEW_DRAFT_DIRTY = "d.dirty";
+        String REVIEW_DRAFT_VERSION = "d.version";
+    }
+
+    /**
      * Constants and methods for working with review drafts.
      */
     public static class ReviewDrafts implements ReviewDraftsColumns, StatefulColumns, SyncColumns {
@@ -1145,6 +1144,45 @@ public class Contract {
         public static final String CONTENT_ITEM_TYPE = CURSOR_ITEM_BASE_TYPE + SUB_TYPE;
 
         private ReviewDrafts() {
+        }
+
+        /**
+         * Get values from the review draft.
+         */
+        public static ContentValues values(Review draft) {
+            ContentValues vals = new ContentValues(6); // 1 extra for incremented version
+            vals.put(RESTAURANT_ID, Restaurants.idForGlobalId(draft.restaurantId));
+            vals.put(COMMENTS, draft.comments);
+            vals.put(RATING, draft.rating);
+            vals.put(STATUS_ID, draft.status.id);
+            vals.put(DIRTY, 0);
+            return vals;
+        }
+    }
+
+    /**
+     * Constants and methods for working with review drafts and their restaurants.
+     */
+    public static class ReviewDraftsJoinRestaurants implements ReviewDraftsColumns,
+            RestaurantsColumns, ReviewDraftsJoinColumns, RestaurantsJoinColumns {
+        /**
+         * URI for the review drafts table joined with the restaurants table.
+         */
+        public static final Uri CONTENT_URI = Uri.withAppendedPath(AUTHORITY_URI,
+                "review_draft_join_restaurant");
+        private static final String SUB_TYPE = "/vnd.diningout.review_draft_join_restaurant";
+        /**
+         * MIME type of {@link #CONTENT_URI} providing a directory of review drafts and their
+         * restaurants.
+         */
+        public static final String CONTENT_TYPE = CURSOR_DIR_BASE_TYPE + SUB_TYPE;
+        /**
+         * MIME type of a {@link #CONTENT_URI} subdirectory of a single review draft and its
+         * restaurant.
+         */
+        public static final String CONTENT_ITEM_TYPE = CURSOR_ITEM_BASE_TYPE + SUB_TYPE;
+
+        private ReviewDraftsJoinRestaurants() {
         }
     }
 

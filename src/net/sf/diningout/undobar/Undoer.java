@@ -29,14 +29,18 @@ import com.cocosw.undobar.UndoBarController.UndoListener;
 
 import net.sf.diningout.data.Status;
 import net.sf.diningout.provider.Contract.Columns;
+import net.sf.sprockets.util.Elements;
+
+import static net.sf.sprockets.app.SprocketsApplication.cr;
+import static net.sf.sprockets.gms.analytics.Trackers.event;
 
 /**
  * Updates the status of objects, shows an {@link UndoBar}, and undoes the update on user request.
  */
 public class Undoer implements UndoListener {
-    private final ContentResolver mCr;
     private final Uri mContentUri;
     private final long[] mIds;
+    private final Status mUpdate;
     private final Status mUndo;
     private final boolean mDirty;
 
@@ -57,9 +61,9 @@ public class Undoer implements UndoListener {
      */
     public Undoer(Activity activity, CharSequence message, Uri contentUri, long[] ids,
                   Status update, Status undo, boolean dirty) {
-        mCr = activity.getContentResolver();
         mContentUri = contentUri;
         mIds = ids;
+        mUpdate = update;
         mUndo = undo;
         mDirty = dirty;
         update(update);
@@ -75,8 +79,9 @@ public class Undoer implements UndoListener {
         if (mDirty) {
             vals.put(Columns.DIRTY, 1);
         }
+        ContentResolver cr = cr();
         for (long id : mIds) {
-            mCr.update(ContentUris.withAppendedId(mContentUri, id), vals, null, null);
+            cr.update(ContentUris.withAppendedId(mContentUri, id), vals, null, null);
         }
         onUpdate(mContentUri, mIds, status);
     }
@@ -90,5 +95,7 @@ public class Undoer implements UndoListener {
     @Override
     public void onUndo(Parcelable token) {
         update(mUndo);
+        event(Elements.get(mContentUri.getPathSegments(), 0) + 's', "undo",
+                mUpdate.toString().toLowerCase(), mIds.length);
     }
 }

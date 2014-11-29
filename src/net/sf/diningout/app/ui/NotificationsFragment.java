@@ -20,7 +20,6 @@ package net.sf.diningout.app.ui;
 import android.app.Activity;
 import android.app.LoaderManager.LoaderCallbacks;
 import android.content.Context;
-import android.content.CursorLoader;
 import android.content.Intent;
 import android.content.Loader;
 import android.database.Cursor;
@@ -51,6 +50,7 @@ import net.sf.diningout.provider.Contract.RestaurantPhotos;
 import net.sf.diningout.provider.Contract.Syncs;
 import net.sf.diningout.provider.Contract.SyncsJoinAll;
 import net.sf.sprockets.app.ui.SprocketsFragment;
+import net.sf.sprockets.content.EasyCursorLoader;
 import net.sf.sprockets.database.EasyCursor;
 import net.sf.sprockets.database.sqlite.SQLite;
 import net.sf.sprockets.util.StringArrays;
@@ -68,13 +68,14 @@ import static net.sf.diningout.data.Status.ACTIVE;
 import static net.sf.diningout.data.Sync.Type.REVIEW;
 import static net.sf.diningout.data.Sync.Type.USER;
 import static net.sf.diningout.picasso.OverlayTransformation.DOWN;
-import static net.sf.sprockets.database.sqlite.SQLite.alias;
-import static net.sf.sprockets.database.sqlite.SQLite.aliased;
+import static net.sf.diningout.picasso.Placeholders.get;
+import static net.sf.sprockets.database.sqlite.SQLite.alias_;
+import static net.sf.sprockets.database.sqlite.SQLite.aliased_;
 
 /**
  * Displays a list of notifications. Activities that attach this must implement {@link Listener}.
  */
-public class NotificationsFragment extends SprocketsFragment implements LoaderCallbacks<Cursor>,
+public class NotificationsFragment extends SprocketsFragment implements LoaderCallbacks<EasyCursor>,
         OnItemClickListener {
     @InjectView(R.id.list)
     GridView mGrid;
@@ -105,41 +106,42 @@ public class NotificationsFragment extends SprocketsFragment implements LoaderCa
     }
 
     @Override
-    public Loader<Cursor> onCreateLoader(int id, Bundle args) {
-        String[] proj = {SyncsJoinAll.SYNC__ID, alias(SyncsJoinAll.SYNC_TYPE_ID),
-                SQLite.millis(Syncs.ACTION_ON), alias(SyncsJoinAll.RESTAURANT__ID),
-                alias(SyncsJoinAll.RESTAURANT_NAME), alias(SyncsJoinAll.CONTACT__ID),
-                Contacts.ANDROID_LOOKUP_KEY, Contacts.ANDROID_ID, alias(SyncsJoinAll.CONTACT_NAME)};
+    public Loader<EasyCursor> onCreateLoader(int id, Bundle args) {
+        String[] proj = {SyncsJoinAll.SYNC__ID, alias_(SyncsJoinAll.SYNC_TYPE_ID),
+                SQLite.millis(Syncs.ACTION_ON), alias_(SyncsJoinAll.RESTAURANT__ID),
+                alias_(SyncsJoinAll.RESTAURANT_NAME), alias_(SyncsJoinAll.CONTACT__ID),
+                Contacts.ANDROID_LOOKUP_KEY, Contacts.ANDROID_ID,
+                alias_(SyncsJoinAll.CONTACT_NAME)};
         String sel = SyncsJoinAll.SYNC_TYPE_ID + " = ? AND " + SyncsJoinAll.REVIEW_STATUS_ID
                 + " = ? AND " + SyncsJoinAll.RESTAURANT_STATUS_ID + " = ? OR "
                 + SyncsJoinAll.SYNC_TYPE_ID + " = ? AND " + SyncsJoinAll.CONTACT_STATUS_ID + " = ?";
         String[] selArgs = StringArrays.from(REVIEW.id, ACTIVE.id, ACTIVE.id, USER.id, ACTIVE.id);
         String order = Syncs.ACTION_ON + " DESC";
-        return new CursorLoader(getActivity(), SyncsJoinAll.CONTENT_URI, proj, sel, selArgs, order);
+        return new EasyCursorLoader(a, SyncsJoinAll.CONTENT_URI, proj, sel, selArgs, order);
     }
 
     @Override
-    public void onLoadFinished(Loader<Cursor> loader, Cursor data) {
+    public void onLoadFinished(Loader<EasyCursor> loader, EasyCursor data) {
         if (mGrid != null) {
             if (data.getCount() == 0 && mGrid.getEmptyView() == null) {
                 View view = getView();
                 mGrid.setEmptyView(((ViewStub) view.findViewById(R.id.empty)).inflate());
                 ButterKnife.inject(this, view);
             }
-            ((CursorAdapter) mGrid.getAdapter()).swapCursor(new EasyCursor(data));
+            ((CursorAdapter) mGrid.getAdapter()).swapCursor(data);
         }
     }
 
     @Override
     public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
         EasyCursor c = (EasyCursor) parent.getItemAtPosition(position);
-        Type type = Type.get(c.getInt(aliased(SyncsJoinAll.SYNC_TYPE_ID)));
+        Type type = Type.get(c.getInt(aliased_(SyncsJoinAll.SYNC_TYPE_ID)));
         switch (type) {
             case USER:
-                id = c.getLong(aliased(SyncsJoinAll.CONTACT__ID));
+                id = c.getLong(aliased_(SyncsJoinAll.CONTACT__ID));
                 break;
             case REVIEW:
-                id = c.getLong(aliased(SyncsJoinAll.RESTAURANT__ID));
+                id = c.getLong(aliased_(SyncsJoinAll.RESTAURANT__ID));
                 break;
         }
         mListener.onNotificationClick(view, type, id);
@@ -151,13 +153,12 @@ public class NotificationsFragment extends SprocketsFragment implements LoaderCa
     @Optional
     @OnClick(R.id.invite)
     void invite() {
-        Activity a = getActivity();
         startActivity(new Intent(a, FriendsActivity.class));
         a.finish();
     }
 
     @Override
-    public void onLoaderReset(Loader<Cursor> loader) {
+    public void onLoaderReset(Loader<EasyCursor> loader) {
         if (mGrid != null) {
             ((CursorAdapter) mGrid.getAdapter()).swapCursor(null);
         }
@@ -198,33 +199,30 @@ public class NotificationsFragment extends SprocketsFragment implements LoaderCa
             NotificationHolder notif = NotificationHolder.from(view);
             EasyCursor c = (EasyCursor) cursor;
             Uri photo = null;
-            int placeholder = 0;
-            String contact = c.getString(aliased(SyncsJoinAll.CONTACT_NAME));
+            String contact = c.getString(aliased_(SyncsJoinAll.CONTACT_NAME));
             if (contact == null) {
                 contact = context.getString(R.string.non_contact);
             }
             CharSequence action = null;
-            switch (Type.get(c.getInt(aliased(SyncsJoinAll.SYNC_TYPE_ID)))) {
+            switch (Type.get(c.getInt(aliased_(SyncsJoinAll.SYNC_TYPE_ID)))) {
                 case USER:
                     String androidKey = c.getString(Contacts.ANDROID_LOOKUP_KEY);
                     long androidId = c.getLong(Contacts.ANDROID_ID);
                     if (androidKey != null && androidId > 0) {
                         photo = ContactsContract.Contacts.getLookupUri(androidId, androidKey);
                     }
-                    placeholder = R.drawable.placeholder2;
                     action = Html.fromHtml(context.getString(R.string.new_friend,
                             TextUtils.htmlEncode(contact)));
                     break;
                 case REVIEW:
                     photo = RestaurantPhotos.uriForRestaurant(
-                            c.getLong(aliased(SyncsJoinAll.RESTAURANT__ID)));
-                    placeholder = R.drawable.placeholder1;
+                            c.getLong(aliased_(SyncsJoinAll.RESTAURANT__ID)));
                     action = context.getString(R.string.new_review, contact,
-                            c.getString(aliased(SyncsJoinAll.RESTAURANT_NAME)));
+                            c.getString(aliased_(SyncsJoinAll.RESTAURANT_NAME)));
                     break;
             }
             Picasso.with(context).load(photo).resize(mCard.getWidth(), mCard.getHeight())
-                    .centerCrop().transform(DOWN).placeholder(placeholder).into(notif.mPhoto);
+                    .centerCrop().transform(DOWN).placeholder(get()).into(notif.mPhoto);
             notif.mAction.setText(action);
             long now = System.currentTimeMillis();
             long when = c.getLong(Syncs.ACTION_ON);

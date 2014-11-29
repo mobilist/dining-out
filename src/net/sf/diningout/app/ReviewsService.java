@@ -18,7 +18,6 @@
 package net.sf.diningout.app;
 
 import android.app.IntentService;
-import android.content.ContentResolver;
 import android.content.ContentUris;
 import android.content.Intent;
 
@@ -80,10 +79,9 @@ public class ReviewsService extends IntentService {
             restaurantId = RestaurantService.add(review.restaurantId);
         }
         if (restaurantId > 0) { // add review
-            ContentResolver cr = cr();
             review.localId = ContentUris.parseId(
-                    cr.insert(Reviews.CONTENT_URI, Reviews.values(review)));
-            cr.call(AUTHORITY_URI, CALL_UPDATE_RESTAURANT_RATING, String.valueOf(restaurantId),
+                    cr().insert(Reviews.CONTENT_URI, Reviews.values(review)));
+            cr().call(AUTHORITY_URI, CALL_UPDATE_RESTAURANT_RATING, String.valueOf(restaurantId),
                     null);
             if (!restaurantExists) { // fill in the placeholder
                 RestaurantService.download(restaurantId);

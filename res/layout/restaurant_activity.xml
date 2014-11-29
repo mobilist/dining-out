@@ -6,20 +6,20 @@
 
     <fragment
         android:id="@+id/detail"
-        android:layout_width="@dimen/text_card_max_width"
+        android:layout_width="@dimen/pane_max_width"
         android:layout_height="match_parent"
         android:layout_gravity="center_horizontal"
         class="net.sf.diningout.app.ui.RestaurantFragment"/>
 
     <android.support.v4.view.ViewPager
         android:id="@+id/pager"
-        android:layout_width="@dimen/text_card_max_width"
+        android:layout_width="@dimen/pane_max_width"
         android:layout_height="match_parent"
         android:layout_gravity="center_horizontal"/>
 
     <com.astuetz.PagerSlidingTabStrip
         android:id="@+id/tabs"
-        android:layout_width="@dimen/text_card_max_width"
+        android:layout_width="@dimen/pane_max_width"
         android:layout_height="?android:actionBarSize"
         android:layout_gravity="center_horizontal"
         android:background="@color/tabs_background"

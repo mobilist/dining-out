@@ -28,6 +28,7 @@ import com.squareup.picasso.Picasso;
 import com.squareup.picasso.RequestCreator;
 
 import net.sf.diningout.R;
+import net.sf.diningout.picasso.Placeholders;
 import net.sf.sprockets.view.ViewHolder;
 import net.sf.sprockets.widget.GridCard;
 
@@ -80,7 +81,7 @@ public class RestaurantHolder extends ViewHolder {
 
     private void photo(RequestCreator req, GridCard card) {
         req.resize(card.getWidth(), card.getHeight()).centerCrop().transform(DOWN)
-                .placeholder(R.drawable.placeholder1).into(photo);
+                .placeholder(Placeholders.get()).into(photo);
     }
 
     /**

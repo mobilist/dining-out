@@ -58,6 +58,7 @@ import static android.view.View.VISIBLE;
 import static com.google.common.base.Predicates.notNull;
 import static net.sf.diningout.provider.Contract.Restaurants.SEARCH_RADIUS;
 import static net.sf.diningout.provider.Contract.Restaurants.SEARCH_TYPES;
+import static net.sf.sprockets.gms.analytics.Trackers.event;
 import static net.sf.sprockets.google.Places.Request.NEARBY_SEARCH;
 import static net.sf.sprockets.google.Places.Response.Status.OK;
 
@@ -116,7 +117,6 @@ public class InitRestaurantsFragment extends SprocketsFragment
 
     @Override
     public Loader<Response<List<Place>>> onCreateLoader(int id, Bundle args) {
-        Activity a = getActivity();
         Params params = null;
         if (id == 0) { // get the first batch of restaurants
             mProgress.setVisibility(VISIBLE);
@@ -128,8 +128,7 @@ public class InitRestaurantsFragment extends SprocketsFragment
                 mTokens[id - 1] = null; // reset so not used again
             }
         }
-        return new GooglePlacesLoader<List<Place>>(a, NEARBY_SEARCH, params,
-                Restaurants.searchFields());
+        return new GooglePlacesLoader<>(a, NEARBY_SEARCH, params, Restaurants.searchFields());
     }
 
     @Override
@@ -179,8 +178,10 @@ public class InitRestaurantsFragment extends SprocketsFragment
         if (total - first - visible <= 6) { // load more when only 6 left
             if (!TextUtils.isEmpty(mTokens[0]) && mPlaces.get(1) == null) {
                 getLoaderManager().restartLoader(1, null, this);
+                event("restaurants", "init scroll", "page 2");
             } else if (!TextUtils.isEmpty(mTokens[1]) && mPlaces.get(2) == null) {
                 getLoaderManager().restartLoader(2, null, this);
+                event("restaurants", "init scroll", "page 3");
             }
         }
     }

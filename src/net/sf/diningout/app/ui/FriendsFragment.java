@@ -26,7 +26,6 @@ import android.app.LoaderManager.LoaderCallbacks;
 import android.content.BroadcastReceiver;
 import android.content.ContentValues;
 import android.content.Context;
-import android.content.CursorLoader;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.Loader;
@@ -61,6 +60,7 @@ import net.sf.diningout.provider.Contract.Contacts;
 import net.sf.sprockets.app.ui.SprocketsFragment;
 import net.sf.sprockets.content.Content;
 import net.sf.sprockets.content.Intents;
+import net.sf.sprockets.content.ReadCursorLoader;
 import net.sf.sprockets.database.EasyCursor;
 import net.sf.sprockets.database.ReadCursor;
 import net.sf.sprockets.net.Uris;
@@ -83,10 +83,14 @@ import static android.view.View.VISIBLE;
 import static net.sf.diningout.app.ReviewsService.EXTRA_ID;
 import static net.sf.diningout.data.Status.ACTIVE;
 import static net.sf.diningout.picasso.OverlayTransformation.UP;
+import static net.sf.diningout.picasso.Placeholders.get;
 import static net.sf.diningout.provider.Contract.ACTION_CONTACTS_SYNCED;
 import static net.sf.diningout.provider.Contract.ACTION_CONTACTS_SYNCING;
 import static net.sf.diningout.provider.Contract.AUTHORITY;
 import static net.sf.diningout.provider.Contract.SYNC_EXTRAS_CONTACTS_ONLY;
+import static net.sf.sprockets.app.SprocketsApplication.cr;
+import static net.sf.sprockets.app.SprocketsApplication.res;
+import static net.sf.sprockets.gms.analytics.Trackers.event;
 import static net.sf.sprockets.view.animation.Interpolators.ANTICIPATE;
 import static net.sf.sprockets.view.animation.Interpolators.OVERSHOOT;
 
@@ -94,7 +98,7 @@ import static net.sf.sprockets.view.animation.Interpolators.OVERSHOOT;
  * Displays contacts to follow and invite to join. Activities that attach this must implement
  * {@link Listener}.
  */
-public class FriendsFragment extends SprocketsFragment implements LoaderCallbacks<Cursor>,
+public class FriendsFragment extends SprocketsFragment implements LoaderCallbacks<ReadCursor>,
         OnItemClickListener {
     /**
      * True if the user is initialising the app.
@@ -131,7 +135,7 @@ public class FriendsFragment extends SprocketsFragment implements LoaderCallback
         mReceiver = new Receiver();
         IntentFilter filter = new IntentFilter(ACTION_CONTACTS_SYNCING);
         filter.addAction(ACTION_CONTACTS_SYNCED);
-        LocalBroadcastManager.getInstance(getActivity()).registerReceiver(mReceiver, filter);
+        LocalBroadcastManager.getInstance(a).registerReceiver(mReceiver, filter);
         setHasOptionsMenu(true);
     }
 
@@ -146,7 +150,7 @@ public class FriendsFragment extends SprocketsFragment implements LoaderCallback
         if (mInit) {
             mHeader.inflate();
         } else { // no header, list needs parent margins
-            int margin = getResources().getDimensionPixelOffset(R.dimen.cards_parent_margin);
+            int margin = res().getDimensionPixelOffset(R.dimen.cards_parent_margin);
             mGrid.setPadding(margin, margin, margin, margin);
         }
         mGrid.setAdapter(new FriendsAdapter());
@@ -168,19 +172,19 @@ public class FriendsFragment extends SprocketsFragment implements LoaderCallback
     }
 
     @Override
-    public Loader<Cursor> onCreateLoader(int id, Bundle args) {
+    public Loader<ReadCursor> onCreateLoader(int id, Bundle args) {
         String[] proj = {_ID, Contacts.GLOBAL_ID, Contacts.ANDROID_LOOKUP_KEY,
                 Contacts.ANDROID_ID, Contacts.NAME, Contacts.EMAIL, Contacts.FOLLOWING};
         String sel = Contacts.STATUS_ID + " = ?";
         String[] selArgs = {String.valueOf(ACTIVE.id)};
         String order = Contacts.GLOBAL_ID + " IS NULL, " + Contacts.NAME + ", " + Contacts.EMAIL;
-        return new CursorLoader(getActivity(), Contacts.CONTENT_URI, proj, sel, selArgs, order);
+        return new ReadCursorLoader(a, Contacts.CONTENT_URI, proj, sel, selArgs, order);
     }
 
     @Override
-    public void onLoadFinished(Loader<Cursor> loader, Cursor data) {
+    public void onLoadFinished(Loader<ReadCursor> loader, ReadCursor data) {
         if (mGrid != null) {
-            ((CursorAdapter) mGrid.getAdapter()).swapCursor(new ReadCursor(data));
+            ((CursorAdapter) mGrid.getAdapter()).swapCursor(data);
             mListener.onFriendClick(mGrid.getCheckedItemCount());
         }
     }
@@ -196,7 +200,7 @@ public class FriendsFragment extends SprocketsFragment implements LoaderCallback
         super.onCreateOptionsMenu(menu, inflater);
         if (mListener.onFriendsOptionsMenu()) {
             inflater.inflate(R.menu.friends, menu);
-            if (!Intents.hasActivity(getActivity(), sAddIntent)) {
+            if (!Intents.hasActivity(a, sAddIntent)) {
                 menu.removeItem(R.id.add);
             }
         }
@@ -206,7 +210,12 @@ public class FriendsFragment extends SprocketsFragment implements LoaderCallback
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
             case R.id.add:
-                startActivity(sAddIntent);
+                if (Intents.hasActivity(a, sAddIntent)) {
+                    startActivity(sAddIntent);
+                    event("friends", "add");
+                } else {
+                    event("friends", "add [fail]");
+                }
                 return true;
             default:
                 return super.onOptionsItemSelected(item);
@@ -265,10 +274,10 @@ public class FriendsFragment extends SprocketsFragment implements LoaderCallback
     private void updateName(TextView view, String name, boolean isChecked, boolean isUser) {
         if (isChecked && !isUser) { // inviting by email address
             view.setText(name.replace("@", " @ ")); // word wrap before domain
-            view.setTextAppearance(getActivity(), R.style.Cell_Title_Small);
+            view.setTextAppearance(a, R.style.Cell_Title_Small);
         } else {
             view.setText(name != null ? name : getString(R.string.non_contact));
-            view.setTextAppearance(getActivity(), R.style.Cell_Title);
+            view.setTextAppearance(a, R.style.Cell_Title);
         }
     }
 
@@ -306,8 +315,11 @@ public class FriendsFragment extends SprocketsFragment implements LoaderCallback
             if (addrs != null) {
                 Intent intent = new Intent(ACTION_SENDTO, Uris.mailto(addrs, null, null,
                         getString(R.string.invite_subject), getString(R.string.invite_body)));
-                if (Intents.hasActivity(getActivity(), intent)) {
+                if (Intents.hasActivity(a, intent)) {
                     startActivity(intent);
+                    event("friends", "invite", addrs.size());
+                } else {
+                    event("friends", "invite [fail]", addrs.size());
                 }
             }
         }
@@ -340,7 +352,6 @@ public class FriendsFragment extends SprocketsFragment implements LoaderCallback
     public void onPause() {
         super.onPause();
         if (!mInit) { // otherwise selections are saved by InitActivity
-            Activity a = getActivity();
             if (a.isFinishing()) {
                 invite();
             }
@@ -363,8 +374,7 @@ public class FriendsFragment extends SprocketsFragment implements LoaderCallback
                             vals.put(Contacts.DIRTY, 1);
                         }
                         vals.put(Contacts.FOLLOWING, change);
-                        a.getContentResolver().update(Uris.appendId(Contacts.CONTENT_URI, c), vals,
-                                null, null);
+                        cr().update(Uris.appendId(Contacts.CONTENT_URI, c), vals, null, null);
                         if (change == 1) {
                             a.startService(new Intent(a, ReviewsService.class)
                                     .putExtra(EXTRA_ID, c.getLong(_ID)));
@@ -376,7 +386,7 @@ public class FriendsFragment extends SprocketsFragment implements LoaderCallback
     }
 
     @Override
-    public void onLoaderReset(Loader<Cursor> loader) {
+    public void onLoaderReset(Loader<ReadCursor> loader) {
         if (mGrid != null) {
             ((CursorAdapter) mGrid.getAdapter()).swapCursor(null);
         }
@@ -385,7 +395,7 @@ public class FriendsFragment extends SprocketsFragment implements LoaderCallback
     @Override
     public void onDestroy() {
         super.onDestroy();
-        LocalBroadcastManager.getInstance(getActivity()).unregisterReceiver(mReceiver);
+        LocalBroadcastManager.getInstance(a).unregisterReceiver(mReceiver);
     }
 
     @Override
@@ -420,7 +430,7 @@ public class FriendsFragment extends SprocketsFragment implements LoaderCallback
         private final GridCard mCard = new GridCard(mGrid);
 
         private FriendsAdapter() {
-            super(getActivity(), R.layout.friends_adapter, null, 0);
+            super(a, R.layout.friends_adapter, null, 0);
         }
 
         @Override
@@ -433,8 +443,7 @@ public class FriendsFragment extends SprocketsFragment implements LoaderCallback
             Uri uri = key != null && id > 0 ? ContactsContract.Contacts.getLookupUri(id, key)
                     : null;
             Picasso.with(context).load(uri).resize(mCard.getWidth(), mCard.getHeight())
-                    .centerCrop().transform(UP).placeholder(R.drawable.placeholder2)
-                    .into(friend.mPhoto);
+                    .centerCrop().transform(UP).placeholder(get()).into(friend.mPhoto);
             /* select if user already following or deselect if unfollowed remotely */
             boolean isUser = !c.isNull(Contacts.GLOBAL_ID);
             if (isUser && !c.wasRead()) {

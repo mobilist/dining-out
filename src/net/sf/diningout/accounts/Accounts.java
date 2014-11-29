@@ -20,10 +20,10 @@ package net.sf.diningout.accounts;
 import android.accounts.Account;
 import android.text.TextUtils;
 
-import net.sf.diningout.preference.Keys;
 import net.sf.sprockets.preference.Prefs;
 
 import static com.google.android.gms.auth.GoogleAuthUtil.GOOGLE_ACCOUNT_TYPE;
+import static net.sf.diningout.preference.Keys.ACCOUNT_NAME;
 import static net.sf.sprockets.app.SprocketsApplication.context;
 
 /**
@@ -45,7 +45,7 @@ public class Accounts {
      */
     public static Account selected() {
         if (sAccount == null) {
-            String name = Prefs.getString(context(), Keys.ACCOUNT_NAME);
+            String name = Prefs.getString(context(), ACCOUNT_NAME);
             if (!TextUtils.isEmpty(name)) {
                 sAccount = new Account(name, GOOGLE_ACCOUNT_TYPE);
             }

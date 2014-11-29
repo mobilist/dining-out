@@ -150,7 +150,7 @@ CREATE TABLE object_type (
     name TEXT NOT NULL
 );
 INSERT INTO object_type (name)
-VALUES ('user'), ('restaurant'), ('visit'), ('review'), ('restaurant photo');
+VALUES ('user'), ('restaurant'), ('visit'), ('review'), ('restaurant photo'), ('review draft');
 
 CREATE TABLE object_action (
     _id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -27,7 +27,6 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.res.Resources;
 import android.os.Bundle;
 import android.os.Handler;
 import android.support.v4.content.LocalBroadcastManager;
@@ -65,6 +64,8 @@ import static net.sf.diningout.preference.Keys.ONBOARDED;
 import static net.sf.diningout.provider.Contract.ACTION_USER_LOGGED_IN;
 import static net.sf.diningout.provider.Contract.AUTHORITY;
 import static net.sf.diningout.provider.Contract.EXTRA_HAS_RESTAURANTS;
+import static net.sf.sprockets.app.SprocketsApplication.res;
+import static net.sf.sprockets.gms.analytics.Trackers.event;
 import static net.sf.sprockets.view.animation.Interpolators.ANTICIPATE;
 
 /**
@@ -184,12 +185,15 @@ public class InitActivity extends PanesActivity implements InitRestaurantsFragme
                         intent.putParcelableArrayListExtra(EXTRA_RESTAURANTS, vals);
                     }
                     /* send followed friends */
-                    FriendsFragment friends = (FriendsFragment) findFragmentByPane(2);
-                    startService(intent.putExtra(EXTRA_CONTACT_IDS, friends.getFollowedFriends()));
+                    FriendsFragment friends = findFragmentByPane(2);
+                    long[] followed = friends.getFollowedFriends();
+                    startService(intent.putExtra(EXTRA_CONTACT_IDS, followed));
                     Prefs.putBoolean(this, ONBOARDED, true);
                     startActivity(new Intent(this, RestaurantsActivity.class));
                     friends.invite();
                     finish(); // last so invite returns to restaurants
+                    event("restaurants", "init", places != null ? places.length : 0L);
+                    event("friends", "init", followed != null ? followed.length : 0L);
                 }
                 return true;
             default:
@@ -258,11 +262,10 @@ public class InitActivity extends PanesActivity implements InitRestaurantsFragme
                 setTitle(R.string.init_title);
             }
         } else { // restaurants and friends
-            Resources res = getResources();
-            String restaurants = mRestaurantsSel > 0 ? res.getQuantityString(
+            String restaurants = mRestaurantsSel > 0 ? res().getQuantityString(
                     R.plurals.n_restaurants, mRestaurantsSel, mRestaurantsSel) : null;
             String friends = mFriendsSel > 0
-                    ? res.getQuantityString(R.plurals.n_friends, mFriendsSel, mFriendsSel) : null;
+                    ? res().getQuantityString(R.plurals.n_friends, mFriendsSel, mFriendsSel) : null;
             if (restaurants != null && friends != null) {
                 setTitle(getString(R.string.s_s_selected, restaurants, friends));
             } else {
@@ -325,6 +328,7 @@ public class InitActivity extends PanesActivity implements InitRestaurantsFragme
                         overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
                     }
                 }, 1000L); // hopefully a restaurant is already added to avoid triggering 'add' help
+                event("user", "restore");
             }
         }
 

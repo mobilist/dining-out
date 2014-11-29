@@ -53,9 +53,6 @@ public class OverlayTransformation implements Transformation {
      * Covers the right half and fades from the middle to the left.
      */
     public static final OverlayTransformation LEFT = new OverlayTransformation(270);
-    private static final int COLOR = res().getColor(R.color.overlay);
-    private static final int[] sColors = {COLOR, TRANSPARENT};
-    private static final float[] sPositions = {0.5f, 1.0f};
 
     private final int mAngle;
 
@@ -65,6 +62,9 @@ public class OverlayTransformation implements Transformation {
     private OverlayTransformation(int angle) {
         mAngle = angle;
     }
+
+    private static final int[] sColors = {res().getColor(R.color.overlay), TRANSPARENT};
+    private static final float[] sPositions = {0.5f, 1.0f};
 
     @Override
     public Bitmap transform(Bitmap source) {

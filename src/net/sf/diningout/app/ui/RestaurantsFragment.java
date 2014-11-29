@@ -19,10 +19,9 @@ package net.sf.diningout.app.ui;
 
 import android.app.Activity;
 import android.app.LoaderManager.LoaderCallbacks;
-import android.content.CursorLoader;
+import android.content.ComponentName;
 import android.content.Intent;
 import android.content.Loader;
-import android.database.Cursor;
 import android.location.Location;
 import android.os.Bundle;
 import android.text.TextUtils;
@@ -31,7 +30,9 @@ import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
+import android.view.MenuItem.OnActionExpandListener;
 import android.view.View;
+import android.view.View.OnClickListener;
 import android.view.ViewGroup;
 import android.widget.AbsListView;
 import android.widget.AbsListView.MultiChoiceModeListener;
@@ -42,6 +43,7 @@ import android.widget.GridView;
 import android.widget.SearchView;
 import android.widget.SearchView.OnQueryTextListener;
 import android.widget.ShareActionProvider;
+import android.widget.ShareActionProvider.OnShareTargetSelectedListener;
 
 import com.github.amlcurran.showcaseview.ShowcaseView.Builder;
 import com.github.amlcurran.showcaseview.targets.ActionItemTarget;
@@ -51,6 +53,7 @@ import net.sf.diningout.provider.Contract.Restaurants;
 import net.sf.diningout.undobar.Undoer;
 import net.sf.diningout.widget.RestaurantCursorAdapter;
 import net.sf.sprockets.app.ui.SprocketsFragment;
+import net.sf.sprockets.content.EasyCursorLoader;
 import net.sf.sprockets.content.LocalCursorLoader;
 import net.sf.sprockets.content.Managers;
 import net.sf.sprockets.database.EasyCursor;
@@ -68,12 +71,13 @@ import static net.sf.diningout.data.Status.ACTIVE;
 import static net.sf.diningout.data.Status.DELETED;
 import static net.sf.sprockets.database.sqlite.SQLite.millis;
 import static net.sf.sprockets.database.sqlite.SQLite.normalise;
+import static net.sf.sprockets.gms.analytics.Trackers.event;
 
 /**
  * Displays a list of the user's restaurants. Activities that attach this must implement
  * {@link Listener}.
  */
-public class RestaurantsFragment extends SprocketsFragment implements LoaderCallbacks<Cursor>,
+public class RestaurantsFragment extends SprocketsFragment implements LoaderCallbacks<EasyCursor>,
         OnItemClickListener {
     /**
      * Loader arg for the position of the selected sort option.
@@ -92,7 +96,7 @@ public class RestaurantsFragment extends SprocketsFragment implements LoaderCall
     Bundle mLoaderArgs;
     private Listener mListener;
     private SearchView mSearch;
-    private boolean mShowcaseInserted;
+    private boolean mShowcaseShown;
     private ActionMode mActionMode;
     private final Intent mShare = new Intent(ACTION_SEND).setType("text/plain");
 
@@ -105,7 +109,7 @@ public class RestaurantsFragment extends SprocketsFragment implements LoaderCall
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        getActivity().getActionBar().setIcon(R.drawable.logo); // expanded SearchView uses icon
+        a.getActionBar().setIcon(R.drawable.logo); // expanded SearchView uses icon
         setHasOptionsMenu(true);
     }
 
@@ -129,9 +133,9 @@ public class RestaurantsFragment extends SprocketsFragment implements LoaderCall
     }
 
     @Override
-    public Loader<Cursor> onCreateLoader(int id, Bundle args) {
+    public Loader<EasyCursor> onCreateLoader(int id, Bundle args) {
         mLoaderArgs = args;
-        CursorLoader loader = null;
+        EasyCursorLoader loader = null;
         final String[] proj = {_ID, Restaurants.NAME, Restaurants.VICINITY,
                 Restaurants.INTL_PHONE, Restaurants.URL, Restaurants.RATING};
         StringBuilder sel = new StringBuilder(Restaurants.STATUS_ID).append(" = ?");
@@ -155,7 +159,7 @@ public class RestaurantsFragment extends SprocketsFragment implements LoaderCall
                     break;
                 case 2:
                     order = Restaurants.DISTANCE + " IS NULL, " + Restaurants.DISTANCE;
-                    loader = new LocalCursorLoader(getActivity(), Restaurants.CONTENT_URI, proj,
+                    loader = new LocalCursorLoader(a, Restaurants.CONTENT_URI, proj,
                             sel.toString(), selArgs, order) {
                         @Override
                         protected void onLocation(Location location) {
@@ -168,22 +172,21 @@ public class RestaurantsFragment extends SprocketsFragment implements LoaderCall
                     break;
             }
         }
-        return loader != null ? loader : new CursorLoader(getActivity(), Restaurants.CONTENT_URI,
-                proj, sel.toString(), selArgs, order);
+        return loader != null ? loader : new EasyCursorLoader(a, Restaurants.CONTENT_URI, proj,
+                sel.toString(), selArgs, order);
     }
 
     @Override
-    public void onLoadFinished(Loader<Cursor> loader, Cursor data) {
+    public void onLoadFinished(Loader<EasyCursor> loader, EasyCursor data) {
         if (mGrid != null) {
-            ((CursorAdapter) mGrid.getAdapter()).swapCursor(new EasyCursor(data));
+            ((CursorAdapter) mGrid.getAdapter()).swapCursor(data);
             updateActionMode();
-            if (!mShowcaseInserted && data.getCount() == 0) {
+            if (!mShowcaseShown && data.getCount() == 0 && mListener.onRestaurantsOptionsMenu()) {
                 if (mLoaderArgs == null || TextUtils.isEmpty(mLoaderArgs.getString(SEARCH_QUERY))) {
-                    Activity a = getActivity();
                     new Builder(a, true).setTarget(new ActionItemTarget(a, R.id.add))
                             .setContentTitle(R.string.restaurants_showcase_title)
                             .setContentText(R.string.restaurants_showcase_detail).build();
-                    mShowcaseInserted = true; // guard against multiple loads on config change
+                    mShowcaseShown = true; // guard against multiple loads on config change
                 }
             }
         }
@@ -228,14 +231,19 @@ public class RestaurantsFragment extends SprocketsFragment implements LoaderCall
     public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
         super.onCreateOptionsMenu(menu, inflater);
         if (mListener.onRestaurantsOptionsMenu()) {
-            Activity a = getActivity();
             inflater.inflate(R.menu.restaurants, menu);
             MenuItem item = menu.findItem(R.id.search);
-            mSearch = SearchViews.setBackground((SearchView) item.getActionView(),
-                    R.drawable.textfield_searchview);
+            mSearch = (SearchView) item.getActionView();
             mSearch.setSearchableInfo(Managers.search(a).getSearchableInfo(a.getComponentName()));
-            mSearch.setOnQueryTextListener(new SearchListener());
-            restoreSearchView(item);
+            SearchViews.setBackground(mSearch, R.drawable.textfield_searchview);
+            mSearch.setOnSearchClickListener(new OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    event("restaurants", "search");
+                }
+            });
+            mSearch.setOnQueryTextListener(new SearchTextListener());
+            item.setOnActionExpandListener(new SearchExpandListener());
         }
     }
 
@@ -243,7 +251,7 @@ public class RestaurantsFragment extends SprocketsFragment implements LoaderCall
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
             case R.id.add:
-                startActivity(new Intent(getActivity(), RestaurantAddActivity.class));
+                startActivity(new Intent(a, RestaurantAddActivity.class));
                 return true;
         }
         return super.onOptionsItemSelected(item);
@@ -283,7 +291,7 @@ public class RestaurantsFragment extends SprocketsFragment implements LoaderCall
     }
 
     @Override
-    public void onLoaderReset(Loader<Cursor> loader) {
+    public void onLoaderReset(Loader<EasyCursor> loader) {
         if (mGrid != null) {
             ((CursorAdapter) mGrid.getAdapter()).swapCursor(null);
         }
@@ -319,19 +327,45 @@ public class RestaurantsFragment extends SprocketsFragment implements LoaderCall
     /**
      * Filters the restaurants by name as the search query changes.
      */
-    private class SearchListener implements OnQueryTextListener {
+    private class SearchTextListener implements OnQueryTextListener {
+        private String oldText = "";
+
         @Override
         public boolean onQueryTextChange(String newText) {
-            mListener.onRestaurantsSearch(newText);
-            initLoaderArgs().putString(SEARCH_QUERY, newText);
-            getLoaderManager().restartLoader(0, mLoaderArgs, RestaurantsFragment.this);
-            mGrid.smoothScrollToPosition(0);
-            return false;
+            if (!newText.equals(oldText)) {
+                mListener.onRestaurantsSearch(newText);
+                initLoaderArgs().putString(SEARCH_QUERY, newText);
+                getLoaderManager().restartLoader(0, mLoaderArgs, RestaurantsFragment.this);
+                mGrid.smoothScrollToPosition(0);
+                oldText = newText;
+            }
+            return true;
         }
 
         @Override
         public boolean onQueryTextSubmit(String query) {
             mSearch.clearFocus();
+            return true;
+        }
+    }
+
+    /**
+     * Reloads the restaurants when the SearchView is closed with an empty query. This is needed
+     * after a configuration change when the SearchView has lost its query, yet the restaurants
+     * are still filtered. onQueryTextChange is not called when the SearchView is closed with an
+     * empty query.
+     */
+    private class SearchExpandListener implements OnActionExpandListener {
+        @Override
+        public boolean onMenuItemActionExpand(MenuItem item) {
+            return true;
+        }
+
+        @Override
+        public boolean onMenuItemActionCollapse(MenuItem item) {
+            if (mSearch.getQuery().length() == 0) {
+                getLoaderManager().restartLoader(0, mLoaderArgs, RestaurantsFragment.this);
+            }
             return true;
         }
     }
@@ -344,10 +378,19 @@ public class RestaurantsFragment extends SprocketsFragment implements LoaderCall
         public boolean onCreateActionMode(ActionMode mode, Menu menu) {
             mActionMode = mode;
             mode.getMenuInflater().inflate(R.menu.restaurants_cab, menu);
-            ShareActionProvider share = (ShareActionProvider) menu.findItem(R.id.share)
-                    .getActionProvider();
+            ShareActionProvider share =
+                    (ShareActionProvider) menu.findItem(R.id.share).getActionProvider();
             share.setShareHistoryFileName("restaurant_share_history.xml");
             share.setShareIntent(mShare);
+            share.setOnShareTargetSelectedListener(new OnShareTargetSelectedListener() {
+                @Override
+                public boolean onShareTargetSelected(ShareActionProvider source, Intent intent) {
+                    ComponentName component = intent.getComponent();
+                    event("restaurants", "share", component != null ? component.getClassName()
+                            : null, mGrid.getCheckedItemCount());
+                    return false;
+                }
+            });
             return true;
         }
 
@@ -366,7 +409,7 @@ public class RestaurantsFragment extends SprocketsFragment implements LoaderCall
             switch (item.getItemId()) {
                 case R.id.delete:
                     long[] ids = mGrid.getCheckedItemIds();
-                    new Undoer(getActivity(), getString(R.string.n_deleted, ids.length),
+                    new Undoer(a, getString(R.string.n_deleted, ids.length),
                             Restaurants.CONTENT_URI, ids, DELETED, ACTIVE);
                     mode.finish(); // ensure mActionMode is null before updateActionMode is called
                     return true;

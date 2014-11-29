@@ -38,7 +38,7 @@ import static android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP;
 import static android.view.Gravity.START;
 
 /**
- * Displays the navigation drawer items and starts the associated Activities when tapped.
+ * Displays the navigation drawer items and starts the associated Activities when clicked.
  */
 public class NavigationDrawerFragment extends BaseNavigationDrawerFragment {
     /**
@@ -54,16 +54,15 @@ public class NavigationDrawerFragment extends BaseNavigationDrawerFragment {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         if (savedInstanceState == null) {
-            setItems(R.array.navigation_drawer_items);
-            setSelectedItemResId(ITEMS.get(getActivity().getClass()));
-            showSettings(true).showFeedback(true);
+            setItems(R.array.navigation_drawer_items).setSelectedItemResId(ITEMS.get(a.getClass()));
+            showSettings(true).showFeedback(true).showRate(true);
         }
     }
 
     @Override
     public void onListItemClick(ListView list, View view, int position, long id, int resId) {
         super.onListItemClick(list, view, position, id, resId);
-        final NavigationDrawerActivity a = (NavigationDrawerActivity) getActivity();
+        final NavigationDrawerActivity a = a();
         a.getDrawerLayout().closeDrawer(START);
         if (resId == R.id.feedback) { // special external case
             final Intent intent = new Intent(ACTION_SENDTO,
@@ -77,6 +76,8 @@ public class NavigationDrawerFragment extends BaseNavigationDrawerFragment {
                     }
                 }, 300L); // start Activity after drawer closes
             }
+            return;
+        } else if (resId == R.id.rate) { // parent takes care of it
             return;
         }
         /* start associated Activity */
@@ -94,7 +95,7 @@ public class NavigationDrawerFragment extends BaseNavigationDrawerFragment {
                     }
                     a.overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
                 }
-            }, 300L); // start Activity after drawer closes
+            }, 300L);
         }
     }
 }

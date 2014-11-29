@@ -20,7 +20,6 @@ package net.sf.diningout.app.ui;
 import android.app.Activity;
 import android.app.LoaderManager.LoaderCallbacks;
 import android.content.Loader;
-import android.content.res.Resources;
 import android.os.Bundle;
 import android.text.Html;
 import android.text.TextUtils;
@@ -58,6 +57,7 @@ import static android.view.View.GONE;
 import static android.view.View.VISIBLE;
 import static android.widget.AdapterView.INVALID_POSITION;
 import static net.sf.diningout.provider.Contract.Restaurants.SEARCH_TYPES;
+import static net.sf.sprockets.app.SprocketsApplication.res;
 import static net.sf.sprockets.google.Places.Params.RankBy.DISTANCE;
 import static net.sf.sprockets.google.Places.Request.NEARBY_SEARCH;
 import static net.sf.sprockets.google.Places.Response.Status.UNKNOWN_ERROR;
@@ -66,8 +66,8 @@ import static net.sf.sprockets.view.animation.Interpolators.ANTI_OVER;
 /**
  * Displays a list of nearby restaurants after {@link #filter(Predicate)} is called.
  */
-public class RestaurantsNearbyFragment extends SprocketsFragment implements
-        LoaderCallbacks<Response<List<Place>>>, OnItemClickListener {
+public class RestaurantsNearbyFragment extends SprocketsFragment
+        implements LoaderCallbacks<Response<List<Place>>>, OnItemClickListener {
     @Optional
     @InjectView(R.id.header)
     TextView mHeader;
@@ -104,9 +104,8 @@ public class RestaurantsNearbyFragment extends SprocketsFragment implements
                 mHeader.setText(R.string.search_results_title);
             }
         } else { // add padding between autocomplete card and grid
-            Resources res = getResources();
-            int parent = res.getDimensionPixelOffset(R.dimen.cards_parent_margin);
-            int sibling = res.getDimensionPixelOffset(R.dimen.cards_sibling_margin);
+            int parent = res().getDimensionPixelOffset(R.dimen.cards_parent_margin);
+            int sibling = res().getDimensionPixelOffset(R.dimen.cards_sibling_margin);
             mGrid.setPadding(parent, sibling, parent, sibling);
         }
         mGrid.setAdapter(new RestaurantPlacesAdapter(mGrid));
@@ -127,7 +126,7 @@ public class RestaurantsNearbyFragment extends SprocketsFragment implements
     public Loader<Response<List<Place>>> onCreateLoader(int id, Bundle args) {
         mProgress.setVisibility(VISIBLE);
         mProgress.animate().alpha(1.0f);
-        Params params = new LocalPlacesParams(getActivity()).types(SEARCH_TYPES);
+        Params params = new LocalPlacesParams(a).types(SEARCH_TYPES);
         if (TextUtils.isEmpty(mSearch)) {
             params.rankBy(DISTANCE);
         } else {
@@ -136,8 +135,7 @@ public class RestaurantsNearbyFragment extends SprocketsFragment implements
         if (mFilter != null) {
             params.filter(mFilter);
         }
-        return new GooglePlacesLoader<List<Place>>(getActivity(), NEARBY_SEARCH, params,
-                Restaurants.searchFields());
+        return new GooglePlacesLoader<>(a, NEARBY_SEARCH, params, Restaurants.searchFields());
     }
 
     @Override

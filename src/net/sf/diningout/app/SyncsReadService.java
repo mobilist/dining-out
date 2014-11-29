@@ -29,6 +29,7 @@ import java.util.Arrays;
 import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
 import static net.sf.diningout.data.Status.ACTIVE;
 import static net.sf.diningout.data.Status.INACTIVE;
+import static net.sf.sprockets.app.SprocketsApplication.cr;
 
 /**
  * Marks all syncs as read. {@link #EXTRA_ACTIVITIES} and
@@ -67,6 +68,6 @@ public class SyncsReadService extends IntentService {
         vals.put(Syncs.STATUS_ID, INACTIVE.id);
         String sel = Syncs.STATUS_ID + " = ?";
         String[] args = {String.valueOf(ACTIVE.id)};
-        getContentResolver().update(Syncs.CONTENT_URI, vals, sel, args);
+        cr().update(Syncs.CONTENT_URI, vals, sel, args);
     }
 }

@@ -22,7 +22,6 @@ import android.content.ContentResolver;
 import android.content.ContentUris;
 import android.content.ContentValues;
 import android.content.Intent;
-import android.content.res.Resources;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
@@ -65,6 +64,8 @@ import static net.sf.diningout.provider.Contract.CALL_UPDATE_RESTAURANT_LAST_VIS
 import static net.sf.diningout.provider.Contract.CALL_UPDATE_RESTAURANT_RATING;
 import static net.sf.sprockets.app.SprocketsApplication.cr;
 import static net.sf.sprockets.app.SprocketsApplication.res;
+import static net.sf.sprockets.gms.analytics.Trackers.event;
+import static net.sf.sprockets.gms.analytics.Trackers.exception;
 import static net.sf.sprockets.google.Places.Response.Status.OK;
 
 /**
@@ -124,15 +125,16 @@ public class RestaurantService extends IntentService {
         }
         /* get Google details, reviews, and photos if available */
         if (restaurant != null && !TextUtils.isEmpty(restaurant.googleReference)) {
-            ContentValues vals = new ContentValues(15);
-            vals.put(Restaurants.GOOGLE_REFERENCE, restaurant.googleReference);
-            Pair<Place, Long> details = details(id, vals);
-            if (details.first != null) {
-                try {
+            try {
+                ContentValues vals = new ContentValues(15);
+                vals.put(Restaurants.GOOGLE_REFERENCE, restaurant.googleReference);
+                Pair<Place, Long> details = details(id, vals);
+                if (details.first != null) {
                     photo(details.second, id, details.first);
-                } catch (IOException e) {
-                    Log.e(TAG, "downloading restaurant photo", e);
                 }
+            } catch (IOException e) {
+                Log.e(TAG, "getting place details or downloading restaurant photo", e);
+                exception(e);
             }
         }
         /* get server details if haven't already */
@@ -143,15 +145,11 @@ public class RestaurantService extends IntentService {
             restaurant.status = ACTIVE; // in case re-adding after deleting
             ContentValues vals = Restaurants.values(restaurant);
             cr.update(uri, vals, null, null);
-            /* get Street View image if needed */
-            Double lat = vals.getAsDouble(Restaurants.LATITUDE);
-            Double lng = vals.getAsDouble(Restaurants.LONGITUDE);
-            if (lat != null && lng != null) {
-                try {
-                    photo(id, lat, lng);
-                } catch (IOException e) {
-                    Log.e(TAG, "downloading restaurant Street View image", e);
-                }
+            try {
+                photo(id, vals);
+            } catch (IOException e) {
+                Log.e(TAG, "downloading Street View image", e);
+                exception(e);
             }
             /* get server reviews */
             List<Review> reviews = Server.reviews(restaurant);
@@ -181,55 +179,51 @@ public class RestaurantService extends IntentService {
      * @return {@link Places#details(Params, Field...) details} response and ID of the first
      * photo or 0 if there aren't any photos
      */
-    static Pair<Place, Long> details(long id, ContentValues vals) {
-        Place place = null;
+    static Pair<Place, Long> details(long id, ContentValues vals) throws IOException {
         long photoId = 0L;
-        try {
-            Params params = new Params().reference(vals.getAsString(Restaurants.GOOGLE_REFERENCE));
-            Response<Place> resp = Places.details(params, Restaurants.detailsFields());
-            place = resp.getResult();
-            if (resp.getStatus() == OK && place != null) {
-                ContentResolver cr = cr();
-                cr.update(ContentUris.withAppendedId(Restaurants.CONTENT_URI, id),
-                        Restaurants.values(vals, place), null, null);
-                /* insert reviews if none yet */
-                String restaurantId = String.valueOf(id);
-                Uri uri = Uris.limit(Reviews.CONTENT_URI, "1");
-                String[] proj = {_ID};
-                String sel = Reviews.RESTAURANT_ID + " = ? AND " + Reviews.TYPE_ID + " = ?";
-                String[] args = {restaurantId, String.valueOf(GOOGLE.id)};
-                if (Cursors.count(cr.query(uri, proj, sel, args, null), true) == 0) {
-                    ContentValues[] reviewVals = Reviews.values(id, place);
-                    if (reviewVals != null) {
-                        for (ContentValues reviewVal : reviewVals) {
-                            if (reviewVal != null) { // could be if review doesn't have comments
-                                cr.insert(Reviews.CONTENT_URI, reviewVal);
-                            }
-                        }
-                        cr.call(AUTHORITY_URI, CALL_UPDATE_RESTAURANT_RATING, restaurantId, null);
-                    }
-                }
-                /* insert photos if none yet */
-                uri = Uris.limit(RestaurantPhotos.CONTENT_URI, "1");
-                sel = RestaurantPhotos.RESTAURANT_ID + " = ?";
-                args = new String[]{restaurantId};
-                photoId = Cursors.firstLong(cr.query(uri, proj, sel, args, _ID), true);
-                if (photoId <= 0) {
-                    ContentValues[] photoVals = RestaurantPhotos.values(id, place);
-                    if (photoVals != null) {
-                        for (ContentValues photoVal : photoVals) {
-                            uri = cr.insert(RestaurantPhotos.CONTENT_URI, photoVal);
-                            if (photoId <= 0) {
-                                photoId = ContentUris.parseId(uri);
-                            }
+        Params params = new Params().reference(vals.getAsString(Restaurants.GOOGLE_REFERENCE));
+        Response<Place> resp = Places.details(params, Restaurants.detailsFields());
+        Place place = resp.getResult();
+        if (resp.getStatus() == OK && place != null) {
+            ContentResolver cr = cr();
+            cr.update(ContentUris.withAppendedId(Restaurants.CONTENT_URI, id),
+                    Restaurants.values(vals, place), null, null);
+            /* insert reviews if none yet */
+            String restaurantId = String.valueOf(id);
+            Uri uri = Uris.limit(Reviews.CONTENT_URI, "1");
+            String[] proj = {_ID};
+            String sel = Reviews.RESTAURANT_ID + " = ? AND " + Reviews.TYPE_ID + " = ?";
+            String[] args = {restaurantId, String.valueOf(GOOGLE.id)};
+            if (Cursors.count(cr.query(uri, proj, sel, args, null)) == 0) {
+                ContentValues[] reviewVals = Reviews.values(id, place);
+                if (reviewVals != null) {
+                    for (ContentValues reviewVal : reviewVals) {
+                        if (reviewVal != null) { // could be if review doesn't have comments
+                            cr.insert(Reviews.CONTENT_URI, reviewVal);
                         }
                     }
+                    cr.call(AUTHORITY_URI, CALL_UPDATE_RESTAURANT_RATING, restaurantId, null);
                 }
-            } else {
-                Log.e(TAG, "Places.details failed, status: " + resp.getStatus());
             }
-        } catch (IOException e) {
-            Log.e(TAG, "getting place details", e);
+            /* insert photos if none yet */
+            uri = Uris.limit(RestaurantPhotos.CONTENT_URI, "1");
+            sel = RestaurantPhotos.RESTAURANT_ID + " = ?";
+            args = new String[]{restaurantId};
+            photoId = Cursors.firstLong(cr.query(uri, proj, sel, args, _ID));
+            if (photoId <= 0) {
+                ContentValues[] photoVals = RestaurantPhotos.values(id, place);
+                if (photoVals != null) {
+                    for (ContentValues photoVal : photoVals) {
+                        uri = cr.insert(RestaurantPhotos.CONTENT_URI, photoVal);
+                        if (photoId <= 0) {
+                            photoId = ContentUris.parseId(uri);
+                        }
+                    }
+                }
+            }
+        } else {
+            Log.e(TAG, "Places.details failed, status: " + resp.getStatus());
+            event("restaurant", "Places.details failed", resp.getStatus().toString());
         }
         return Pair.create(place, photoId >= 0 ? photoId : 0L);
     }
@@ -241,10 +235,9 @@ public class RestaurantService extends IntentService {
      *           downloaded
      */
     static void photo(long id, long restaurantId, Place place) throws IOException {
-        Resources res = res();
         String url = RestaurantPhotos.url(place,
-                res.getDimensionPixelSize(R.dimen.restaurant_photo_width),
-                res.getDimensionPixelSize(R.dimen.restaurant_photo_height));
+                res().getDimensionPixelSize(R.dimen.restaurant_photo_width),
+                res().getDimensionPixelSize(R.dimen.restaurant_photo_height));
         String etag = photo(id, restaurantId, url);
         if (id > 0 && !TextUtils.isEmpty(etag)) {
             ContentValues vals = new ContentValues(1);
@@ -255,13 +248,25 @@ public class RestaurantService extends IntentService {
     }
 
     /**
+     * If the values have {@link Restaurants#LATITUDE LATITUDE} and
+     * {@link Restaurants#LONGITUDE LONGITUDE} in them, download a Street View image for the
+     * location and save it to disk.
+     */
+    public static void photo(long restaurantId, ContentValues vals) throws IOException {
+        Double lat = vals.getAsDouble(Restaurants.LATITUDE);
+        Double lng = vals.getAsDouble(Restaurants.LONGITUDE);
+        if (lat != null && lng != null) {
+            photo(restaurantId, lat, lng);
+        }
+    }
+
+    /**
      * Download a Street View image for the location and save it to disk.
      */
-    private static void photo(long restaurantId, double lat, double lng) throws IOException {
-        Resources res = res();
+    static void photo(long restaurantId, double lat, double lng) throws IOException {
         String url = RestaurantPhotos.url(lat, lng,
-                res.getDimensionPixelSize(R.dimen.restaurant_photo_width),
-                res.getDimensionPixelSize(R.dimen.restaurant_photo_height));
+                res().getDimensionPixelSize(R.dimen.restaurant_photo_width),
+                res().getDimensionPixelSize(R.dimen.restaurant_photo_height));
         photo(0, restaurantId, url);
     }
 

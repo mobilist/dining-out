@@ -17,12 +17,28 @@
 
 package net.sf.diningout.app.ui;
 
+import android.support.v4.widget.DrawerLayout;
+
 import net.sf.sprockets.app.ui.NavigationDrawerActivity;
+import net.sf.sprockets.preference.Prefs;
+
+import static android.view.Gravity.START;
+import static net.sf.diningout.preference.Keys.NAVIGATION_DRAWER_OPENED;
 
 /**
- * Fades out when finishing if not the root of a task.
+ * Opens the navigation drawer on first launch and fades out when finishing if not the task root.
  */
 public class BaseNavigationDrawerActivity extends NavigationDrawerActivity {
+    @Override
+    public NavigationDrawerActivity setDrawerLayout(DrawerLayout layout) {
+        super.setDrawerLayout(layout);
+        if (!Prefs.getBoolean(this, NAVIGATION_DRAWER_OPENED)) {
+            layout.openDrawer(START);
+            Prefs.putBoolean(this, NAVIGATION_DRAWER_OPENED, true);
+        }
+        return this;
+    }
+
     @Override
     public void finish() {
         super.finish();

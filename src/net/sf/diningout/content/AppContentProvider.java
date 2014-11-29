@@ -31,6 +31,7 @@ import net.sf.diningout.provider.Contract.Contacts;
 import net.sf.diningout.provider.Contract.RestaurantPhotos;
 import net.sf.diningout.provider.Contract.Restaurants;
 import net.sf.diningout.provider.Contract.ReviewDrafts;
+import net.sf.diningout.provider.Contract.ReviewDraftsJoinRestaurants;
 import net.sf.diningout.provider.Contract.Reviews;
 import net.sf.diningout.provider.Contract.ReviewsJoinAll;
 import net.sf.diningout.provider.Contract.ReviewsJoinContacts;
@@ -48,6 +49,8 @@ import java.io.IOException;
 import static android.content.UriMatcher.NO_MATCH;
 import static android.os.ParcelFileDescriptor.MODE_READ_ONLY;
 import static net.sf.diningout.provider.Contract.AUTHORITY;
+import static net.sf.sprockets.app.SprocketsApplication.cr;
+import static net.sf.sprockets.gms.analytics.Trackers.exception;
 
 /**
  * See {@link Contract} for the interface to this ContentProvider.
@@ -70,10 +73,12 @@ public class AppContentProvider extends DbContentProvider {
     private static final int REVIEW_JOIN_ALL_ID = 710;
     private static final int REVIEW_DRAFTS = 800;
     private static final int REVIEW_DRAFT_ID = 810;
-    private static final int SYNCS = 900;
-    private static final int SYNC_ID = 910;
-    private static final int SYNCS_JOIN_ALL = 1000;
-    private static final int SYNC_JOIN_ALL_ID = 1010;
+    private static final int REVIEW_DRAFTS_JOIN_RESTAURANTS = 900;
+    private static final int REVIEW_DRAFT_JOIN_RESTAURANT_ID = 910;
+    private static final int SYNCS = 1000;
+    private static final int SYNC_ID = 1010;
+    private static final int SYNCS_JOIN_ALL = 1100;
+    private static final int SYNC_JOIN_ALL_ID = 1110;
     private static final UriMatcher sMatcher = new UriMatcher(NO_MATCH);
 
     static {
@@ -93,6 +98,9 @@ public class AppContentProvider extends DbContentProvider {
         sMatcher.addURI(AUTHORITY, "review_join_all/#", REVIEW_JOIN_ALL_ID);
         sMatcher.addURI(AUTHORITY, "review_draft", REVIEW_DRAFTS);
         sMatcher.addURI(AUTHORITY, "review_draft/#", REVIEW_DRAFT_ID);
+        sMatcher.addURI(AUTHORITY, "review_draft_join_restaurant", REVIEW_DRAFTS_JOIN_RESTAURANTS);
+        sMatcher.addURI(AUTHORITY, "review_draft_join_restaurant/#",
+                REVIEW_DRAFT_JOIN_RESTAURANT_ID);
         sMatcher.addURI(AUTHORITY, "sync", SYNCS);
         sMatcher.addURI(AUTHORITY, "sync/#", SYNC_ID);
         sMatcher.addURI(AUTHORITY, "sync_join_all", SYNCS_JOIN_ALL);
@@ -133,6 +141,13 @@ public class AppContentProvider extends DbContentProvider {
                                     + "LEFT JOIN contact AS c ON w.contact_id = c._id")
                             .notify(Reviews.CONTENT_URI);
                     break;
+                case REVIEW_DRAFT_JOIN_RESTAURANT_ID:
+                    sql.sel(ReviewDrafts.RESTAURANT_ID + " = ?");
+                case REVIEW_DRAFTS_JOIN_RESTAURANTS:
+                    sql.table("review_draft AS d")
+                            .join("JOIN restaurant AS r ON d.restaurant_id = r._id")
+                            .notify(ReviewDrafts.CONTENT_URI);
+                    break;
                 case SYNC_JOIN_ALL_ID:
                     sql.sel(SyncsJoinAll.SYNC__ID + " = ?");
                 case SYNCS_JOIN_ALL:
@@ -156,9 +171,10 @@ public class AppContentProvider extends DbContentProvider {
             db.execSQL(Queries.get(method), new Object[]{arg, arg});
         } catch (IOException e) {
             Log.e(TAG, method, e);
+            exception(e);
         }
-        Uri uri = ContentUris.withAppendedId(Restaurants.CONTENT_URI, Long.parseLong(arg));
-        getContext().getContentResolver().notifyChange(uri, null, false);
+        cr().notifyChange(ContentUris.withAppendedId(Restaurants.CONTENT_URI,
+                Long.parseLong(arg)), null, false);
         return null;
     }
 
@@ -211,6 +227,10 @@ public class AppContentProvider extends DbContentProvider {
                 return ReviewDrafts.CONTENT_TYPE;
             case REVIEW_DRAFT_ID:
                 return ReviewDrafts.CONTENT_ITEM_TYPE;
+            case REVIEW_DRAFTS_JOIN_RESTAURANTS:
+                return ReviewDraftsJoinRestaurants.CONTENT_TYPE;
+            case REVIEW_DRAFT_JOIN_RESTAURANT_ID:
+                return ReviewDraftsJoinRestaurants.CONTENT_ITEM_TYPE;
             case SYNCS:
                 return Syncs.CONTENT_TYPE;
             case SYNC_ID:

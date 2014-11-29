@@ -21,7 +21,7 @@
 
         <TextView
             android:id="@+id/action"
-            style="@style/Cell.Title"
+            style="@style/Cell.Title.Sentence"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:maxLines="3"/>

@@ -45,7 +45,7 @@ public class Sync<T extends Synced> {
      * Objects that can be synchronised.
      */
     public enum Type {
-        USER(1), RESTAURANT(2), VISIT(3), REVIEW(4), RESTAURANT_PHOTO(5);
+        USER(1), RESTAURANT(2), VISIT(3), REVIEW(4), RESTAURANT_PHOTO(5), REVIEW_DRAFT(6);
 
         public final int id;
 

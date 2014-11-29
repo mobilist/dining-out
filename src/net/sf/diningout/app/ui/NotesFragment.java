@@ -17,13 +17,10 @@
 
 package net.sf.diningout.app.ui;
 
-import android.app.Activity;
 import android.app.LoaderManager.LoaderCallbacks;
 import android.content.ContentUris;
 import android.content.ContentValues;
-import android.content.CursorLoader;
 import android.content.Loader;
-import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.View;
@@ -38,16 +35,19 @@ import com.google.common.base.Strings;
 import net.sf.diningout.R;
 import net.sf.diningout.app.ui.RestaurantActivity.TabListFragment;
 import net.sf.diningout.provider.Contract.Restaurants;
+import net.sf.sprockets.content.EasyCursorLoader;
 import net.sf.sprockets.database.EasyCursor;
 import net.sf.sprockets.view.ViewHolder;
 
 import butterknife.InjectView;
 import icepick.Icicle;
 
+import static net.sf.sprockets.app.SprocketsApplication.cr;
+
 /**
  * Displays editable notes for a restaurant.
  */
-public class NotesFragment extends TabListFragment implements LoaderCallbacks<Cursor> {
+public class NotesFragment extends TabListFragment implements LoaderCallbacks<EasyCursor> {
     @Icicle
     long mRestaurantId;
     @Icicle
@@ -70,7 +70,7 @@ public class NotesFragment extends TabListFragment implements LoaderCallbacks<Cu
         NotesAdapter adapter = new NotesAdapter();
         setListAdapter(adapter);
         final ListView list = getListView();
-        view = getActivity().getLayoutInflater().inflate(R.layout.notes, list, false);
+        view = a.getLayoutInflater().inflate(R.layout.notes, list, false);
         NotesHolder notes = NotesHolder.from(view);
         notes.mNotes.setText(mNotes); // restore after config change
         list.addHeaderView(view);
@@ -90,15 +90,15 @@ public class NotesFragment extends TabListFragment implements LoaderCallbacks<Cu
     }
 
     @Override
-    public Loader<Cursor> onCreateLoader(int id, Bundle args) {
-        return new CursorLoader(getActivity(), ContentUris.withAppendedId(Restaurants.CONTENT_URI,
-                mRestaurantId), new String[]{Restaurants.NOTES}, null, null, null);
+    public Loader<EasyCursor> onCreateLoader(int id, Bundle args) {
+        Uri uri = ContentUris.withAppendedId(Restaurants.CONTENT_URI, mRestaurantId);
+        return new EasyCursorLoader(a, uri, new String[]{Restaurants.NOTES}, null, null, null);
     }
 
     @Override
-    public void onLoadFinished(Loader<Cursor> loader, Cursor data) {
+    public void onLoadFinished(Loader<EasyCursor> loader, EasyCursor data) {
         if (data.moveToFirst()) {
-            String notes = new EasyCursor(data).getString(Restaurants.NOTES);
+            String notes = data.getString(Restaurants.NOTES);
             if (!Objects.equal(notes, mStoredNotes)) { // don't overwrite unless updated elsewhere
                 getNotes().mNotes.setText(notes);
                 mStoredNotes = notes;
@@ -115,21 +115,20 @@ public class NotesFragment extends TabListFragment implements LoaderCallbacks<Cu
     }
 
     @Override
-    public void onLoaderReset(Loader<Cursor> loader) {
+    public void onLoaderReset(Loader<EasyCursor> loader) {
     }
 
     @Override
     public void onPause() {
         super.onPause();
-        Activity a = getActivity();
         if (!a.isChangingConfigurations()) {
             String notes = getNotes().mNotes.getText().toString();
-            if (!Objects.equal(notes, Strings.nullToEmpty(mStoredNotes))) { // save if changed
+            if (!notes.equals(Strings.nullToEmpty(mStoredNotes))) { // save if changed
                 ContentValues vals = new ContentValues(2);
                 vals.put(Restaurants.NOTES, notes);
                 vals.put(Restaurants.DIRTY, 1);
-                Uri uri = ContentUris.withAppendedId(Restaurants.CONTENT_URI, mRestaurantId);
-                a.getContentResolver().update(uri, vals, null, null);
+                cr().update(ContentUris.withAppendedId(Restaurants.CONTENT_URI, mRestaurantId),
+                        vals, null, null);
                 mStoredNotes = notes;
             }
         }

@@ -17,6 +17,7 @@
 
 package net.sf.diningout.app.ui;
 
+import android.app.ListFragment;
 import android.content.res.Resources;
 import android.database.DataSetObserver;
 import android.graphics.Color;
@@ -58,9 +59,14 @@ import net.sf.sprockets.widget.ParallaxViewScrollListener;
 import butterknife.InjectView;
 
 import static android.support.v4.view.ViewPager.SCROLL_STATE_IDLE;
+import static android.view.MotionEvent.ACTION_CANCEL;
+import static android.view.MotionEvent.ACTION_DOWN;
+import static android.view.MotionEvent.ACTION_UP;
 import static android.widget.AdapterView.ITEM_VIEW_TYPE_HEADER_OR_FOOTER;
 import static net.sf.diningout.data.Review.Type.GOOGLE;
 import static net.sf.diningout.data.Review.Type.PRIVATE;
+import static net.sf.sprockets.app.SprocketsApplication.res;
+import static net.sf.sprockets.gms.analytics.Trackers.event;
 
 /**
  * Displays a restaurant's details and reviews. Callers must include {@link #EXTRA_ID} in their
@@ -77,6 +83,7 @@ public class RestaurantActivity extends SprocketsActivity implements OnScrollApp
     static Drawable sPlaceholder;
     private static final int[] sTabTitles = {R.string.tab_private, R.string.tab_public,
             R.string.tab_notes};
+    private static final String[] sTabEventLabels = {"private", "public", "notes"};
 
     @InjectView(R.id.detail)
     View mDetail;
@@ -85,6 +92,10 @@ public class RestaurantActivity extends SprocketsActivity implements OnScrollApp
     @InjectView(R.id.pager)
     ViewPager mPager;
     private int mActionBarSize;
+    /**
+     * True if the current touch event started on a tab.
+     */
+    private boolean mTabsActionDown;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -95,13 +106,15 @@ public class RestaurantActivity extends SprocketsActivity implements OnScrollApp
         mPager.setAdapter(new PagerAdapter());
         mTabs.setViewPager(mPager);
         mTabs.setOnPageChangeListener(new PageChangeListener());
+        mTabs.setOnTouchListener(new TabsTouchListener());
     }
 
     @Override
     public boolean onScroll(OnScrollListener listener, AbsListView view, int first, int visible,
                             int total) {
+        /* only when list is from current page */
         TabListFragment item = getCurrentFragment();
-        return item != null && view == item.getListView(); // only when list is from current page
+        return item != null && item.getView() != null && view == item.getListView();
     }
 
     TabListFragment getCurrentFragment() {
@@ -224,6 +237,7 @@ public class RestaurantActivity extends SprocketsActivity implements OnScrollApp
                 }, 500L); // after ActionBar menu updates (so add review icon doesn't flicker)
             }
             mOldItem = position;
+            event("restaurant", "view tab", sTabEventLabels[position]);
         }
 
         /**
@@ -254,6 +268,40 @@ public class RestaurantActivity extends SprocketsActivity implements OnScrollApp
     }
 
     /**
+     * Forwards touch events to the current ListFragment.
+     */
+    private class TabsTouchListener implements OnTouchListener {
+        @Override
+        public boolean onTouch(View v, MotionEvent event) {
+            ListFragment frag = getCurrentFragment();
+            if (frag == null || frag.getView() == null) {
+                return false; // list not ready yet
+            }
+            ListView list = frag.getListView();
+            event.offsetLocation(0.0f, mTabs.getTranslationY()); // match tabs actual location
+            switch (event.getActionMasked()) {
+                case ACTION_DOWN:
+                    mTabsActionDown = true;
+                    break;
+                case ACTION_UP:
+                case ACTION_CANCEL:
+                    mTabsActionDown = false;
+                    break;
+                default:
+                    if (!mTabsActionDown) { // ACTION_DOWN was eaten, manually send it to the list
+                        mTabsActionDown = true;
+                        MotionEvent down = MotionEvent.obtain(event);
+                        down.setAction(ACTION_DOWN);
+                        list.dispatchTouchEvent(down);
+                        down.recycle();
+                    }
+            }
+            list.dispatchTouchEvent(event);
+            return false;
+        }
+    }
+
+    /**
      * Adds a transparent header View over the restaurant details and tabs, and a footer View sized
      * so that a short list can still scroll to the top of the screen. Sets an OnScrollListener to
      * manage the ActionBar transparency, details parallax scrolling, and tabs floating.
@@ -264,14 +312,14 @@ public class RestaurantActivity extends SprocketsActivity implements OnScrollApp
         @Override
         public void onCreate(Bundle savedInstanceState) {
             super.onCreate(savedInstanceState);
-            mDividerHeight = getResources().getDimensionPixelOffset(R.dimen.cards_sibling_margin);
+            mDividerHeight = res().getDimensionPixelOffset(R.dimen.cards_sibling_margin);
         }
 
         @Override
         public void onViewCreated(View view, Bundle savedInstanceState) {
             super.onViewCreated(view, savedInstanceState);
-            RestaurantActivity a = (RestaurantActivity) getActivity();
-            Resources res = getResources();
+            RestaurantActivity a = a();
+            Resources res = res();
             ListView list = getListView();
             list.setFocusable(false); // don't steal focus from EditText when keyboard appears
             list.setSelector(R.drawable.cards_list_selector);
@@ -302,13 +350,14 @@ public class RestaurantActivity extends SprocketsActivity implements OnScrollApp
         }
 
         /**
-         * Forwards touches to the overlaid detail View.
+         * Forwards touch events to the overlaid detail View.
          */
         private class TouchListener implements OnTouchListener {
             @Override
             public boolean onTouch(View v, MotionEvent event) {
-                if (getListView().getFirstVisiblePosition() == 0) { // detail View visible
-                    RestaurantActivity a = (RestaurantActivity) getActivity();
+                RestaurantActivity a = a();
+                /* only if didn't start from tab (touch slop) and the detail View is visible */
+                if (!a.mTabsActionDown && getListView().getFirstVisiblePosition() == 0) {
                     if (event.getY() < a.mTabs.getTranslationY() + a.mTabs.getHeight()) {
                         float y = a.mDetail.getTranslationY();
                         if (y == 0.0f) {
@@ -330,7 +379,7 @@ public class RestaurantActivity extends SprocketsActivity implements OnScrollApp
          * tabs above them) can still be scrolled to the top of the screen.
          */
         private class Observer extends DataSetObserver {
-            private final Space mFooter = new Space(getActivity());
+            private final Space mFooter = new Space(a);
 
             private Observer() {
                 mFooter.setLayoutParams(new LayoutParams(1, 0, ITEM_VIEW_TYPE_HEADER_OR_FOOTER));
@@ -346,10 +395,9 @@ public class RestaurantActivity extends SprocketsActivity implements OnScrollApp
                     @Override
                     public void onGlobalLayout() {
                         view.getViewTreeObserver().removeOnGlobalLayoutListener(this);
-                        RestaurantActivity a = (RestaurantActivity) getActivity();
                         /* based on display height, windowSoftInputMode adjustResize shrinks View */
                         int listHeight = Displays.getSize(a).y - Windows.getFrame(a).top
-                                - a.mActionBarSize * 2; // - status bar - ActionBar - tabs
+                                - ((RestaurantActivity) a).mActionBarSize * 2; // status - AB - tabs
                         int views = ListViews.getHeight(view, 1, view.getAdapter().getCount() - 1,
                                 listHeight); // ignore header and footer
                         mFooter.getLayoutParams().height =

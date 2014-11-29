@@ -17,8 +17,6 @@
 
 package net.sf.diningout.net;
 
-import android.content.Context;
-import android.content.res.Resources;
 import android.os.SystemClock;
 import android.text.TextUtils;
 import android.util.Log;
@@ -58,6 +56,8 @@ import static net.sf.diningout.preference.Keys.ACCOUNT_NAME;
 import static net.sf.diningout.preference.Keys.INSTALL_ID;
 import static net.sf.sprockets.app.SprocketsApplication.context;
 import static net.sf.sprockets.app.SprocketsApplication.res;
+import static net.sf.sprockets.gms.analytics.Trackers.event;
+import static net.sf.sprockets.gms.analytics.Trackers.exception;
 
 /**
  * Methods for communicating with the server.
@@ -84,9 +84,7 @@ public class Server {
                     new OkHttpClient().setSslSocketFactory(ssl.getSocketFactory()));
             API = new Builder().setClient(client).setEndpoint(res().getString(R.string.server_url))
                     .setRequestInterceptor(new Interceptor()).build().create(Api.class);
-        } catch (GeneralSecurityException e) {
-            throw new RuntimeException("loading server certificate", e);
-        } catch (IOException e) {
+        } catch (GeneralSecurityException | IOException e) {
             throw new RuntimeException("loading server certificate", e);
         }
     }
@@ -210,6 +208,22 @@ public class Server {
     }
 
     /**
+     * Send review draft changes.
+     *
+     * @return null if there was a problem communicating with the server
+     */
+    public static List<Review> syncReviewDrafts(List<Review> drafts) {
+        if (haveToken()) {
+            try {
+                return API.syncReviewDrafts(drafts);
+            } catch (RetrofitError e) {
+                log(e);
+            }
+        }
+        return null;
+    }
+
+    /**
      * Get new remote changes.
      *
      * @return null if there was a problem communicating with the server
@@ -245,24 +259,27 @@ public class Server {
      * True if we have the current auth token, false otherwise.
      */
     private static boolean haveToken() {
-        Context context = context();
-        String account = Prefs.getString(context, ACCOUNT_NAME);
+        String account = Prefs.getString(context(), ACCOUNT_NAME);
         if (!TextUtils.isEmpty(account)) {
-            Resources res = context.getResources();
-            int retries = res.getInteger(R.integer.backoff_retries);
-            String scope = res.getString(R.string.auth_scope);
+            int retries = res().getInteger(R.integer.backoff_retries);
             for (int i = 0; i < retries; i++) {
                 try {
-                    sToken = GoogleAuthUtil.getTokenWithNotification(context, account, scope, null);
+                    sToken = GoogleAuthUtil.getTokenWithNotification(context(), account,
+                            res().getString(R.string.auth_scope), null);
                     return true;
                 } catch (GoogleAuthException e) {
                     Log.e(TAG, "getting auth token", e);
+                    exception(e);
                     return false; // user needs to fix authentication, don't retry
                 } catch (IOException e) {
                     Log.e(TAG, "getting auth token", e);
+                    exception(e);
                 }
                 if (i + 1 < retries) {
                     SystemClock.sleep((1 << i) * 1000); // wait and retry, occasional network error
+                    event("gms", "auth token retry", i + 1);
+                } else {
+                    event("gms", "no auth token after retries", retries);
                 }
             }
         }
@@ -274,6 +291,7 @@ public class Server {
      */
     private static void log(RetrofitError e) {
         Log.e(TAG, "API call failed", e);
+        exception(e);
     }
 
     /**
@@ -300,6 +318,9 @@ public class Server {
 
         @POST("/sync-reviews/v0")
         List<Review> syncReviews(@Body List<Review> reviews);
+
+        @POST("/sync-review-drafts/v0")
+        List<Review> syncReviewDrafts(@Body List<Review> drafts);
 
         @GET("/sync/v0")
         Syncing sync();
