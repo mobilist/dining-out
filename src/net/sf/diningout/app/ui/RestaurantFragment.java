@@ -33,6 +33,7 @@ import android.text.style.ForegroundColorSpan;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewStub;
@@ -50,6 +51,7 @@ import com.squareup.picasso.RequestCreator;
 
 import net.sf.diningout.R;
 import net.sf.diningout.app.RestaurantGeocodeService;
+import net.sf.diningout.app.RestaurantService;
 import net.sf.diningout.provider.Contract.RestaurantPhotos;
 import net.sf.diningout.provider.Contract.Restaurants;
 import net.sf.sprockets.app.ui.SprocketsFragment;
@@ -258,6 +260,18 @@ public class RestaurantFragment extends SprocketsFragment implements LoaderCallb
                 return false;
             }
         });
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        switch (item.getItemId()) {
+            case R.id.refresh:
+                a.startService(new Intent(a, RestaurantService.class)
+                        .putExtra(RestaurantService.EXTRA_ID, mId));
+                event("restaurant", "refresh");
+                return true;
+        }
+        return super.onOptionsItemSelected(item);
     }
 
     @OnClick({R.id.name, R.id.address, R.id.phone, R.id.website})

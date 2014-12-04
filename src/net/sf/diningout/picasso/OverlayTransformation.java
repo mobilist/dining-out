@@ -22,7 +22,7 @@ import android.graphics.Canvas;
 import android.graphics.LinearGradient;
 import android.graphics.Paint;
 
-import com.google.common.base.Objects;
+import com.google.common.base.MoreObjects;
 import com.squareup.picasso.Transformation;
 
 import net.sf.diningout.R;
@@ -103,6 +103,6 @@ public class OverlayTransformation implements Transformation {
 
     @Override
     public String toString() {
-        return Objects.toStringHelper(this).add("angle", mAngle).toString();
+        return MoreObjects.toStringHelper(this).add("angle", mAngle).toString();
     }
 }

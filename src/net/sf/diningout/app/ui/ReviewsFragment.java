@@ -296,10 +296,6 @@ public class ReviewsFragment extends TabListFragment implements LoaderCallbacks<
         inflater.inflate(R.menu.reviews, menu);
         if (mEditing || getListAdapter().getCount() == 0) {
             menu.findItem(R.id.add).setEnabled(false).setVisible(false);
-            MenuItem share = menu.findItem(R.id.share); // external item
-            if (share != null) {
-                share.setEnabled(false).setVisible(false);
-            }
         }
         if (!mEditing) {
             menu.findItem(R.id.done).setEnabled(false).setVisible(false);

@@ -2,8 +2,12 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
     <item
         android:id="@+id/share"
+        android:title="@string/share"
         android:actionProviderClass="android.widget.ShareActionProvider"
-        android:orderInCategory="99"
-        android:showAsAction="ifRoom"
-        android:title="@string/share"/>
+        android:orderInCategory="98"/>
+    <!-- after 'discard' -->
+    <item
+        android:id="@+id/refresh"
+        android:title="@string/refresh"
+        android:orderInCategory="99"/>
 </menu>

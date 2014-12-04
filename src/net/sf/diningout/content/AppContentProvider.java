@@ -161,7 +161,7 @@ public class AppContentProvider extends DbContentProvider {
             }
             return sql;
         }
-        return null;
+        return super.translate(uri);
     }
 
     @Override
