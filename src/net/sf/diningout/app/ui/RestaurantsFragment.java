@@ -177,11 +177,11 @@ public class RestaurantsFragment extends SprocketsFragment implements LoaderCall
     }
 
     @Override
-    public void onLoadFinished(Loader<EasyCursor> loader, EasyCursor data) {
+    public void onLoadFinished(Loader<EasyCursor> loader, EasyCursor c) {
         if (mGrid != null) {
-            ((CursorAdapter) mGrid.getAdapter()).swapCursor(data);
+            ((CursorAdapter) mGrid.getAdapter()).swapCursor(c);
             updateActionMode();
-            if (!mShowcaseShown && data.getCount() == 0 && mListener.onRestaurantsOptionsMenu()) {
+            if (!mShowcaseShown && c.getCount() == 0 && mListener.onRestaurantsOptionsMenu()) {
                 if (mLoaderArgs == null || TextUtils.isEmpty(mLoaderArgs.getString(SEARCH_QUERY))) {
                     new Builder(a, true).setTarget(new ActionItemTarget(a, R.id.add))
                             .setContentTitle(R.string.restaurants_showcase_title)

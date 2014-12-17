@@ -29,7 +29,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.Loader;
-import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.ContactsContract;
@@ -48,7 +47,6 @@ import android.widget.AdapterView.OnItemClickListener;
 import android.widget.CursorAdapter;
 import android.widget.GridView;
 import android.widget.ImageView;
-import android.widget.ResourceCursorAdapter;
 import android.widget.TextView;
 
 import com.squareup.picasso.Picasso;
@@ -67,6 +65,7 @@ import net.sf.sprockets.net.Uris;
 import net.sf.sprockets.util.SparseArrays;
 import net.sf.sprockets.view.ViewHolder;
 import net.sf.sprockets.widget.GridCard;
+import net.sf.sprockets.widget.ResourceReadCursorAdapter;
 
 import org.apache.commons.collections.primitives.ArrayLongList;
 
@@ -225,7 +224,7 @@ public class FriendsFragment extends SprocketsFragment implements LoaderCallback
     @Override
     public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
         /* slide out text views, update their values, slide them back in */
-        final FriendHolder friend = FriendHolder.from(view);
+        final FriendHolder friend = ViewHolder.get(view);
         final String name; // contact name or email address if clicked to invite
         EasyCursor c = (EasyCursor) mGrid.getItemAtPosition(position);
         final boolean isUser = !c.isNull(Contacts.GLOBAL_ID);
@@ -423,7 +422,7 @@ public class FriendsFragment extends SprocketsFragment implements LoaderCallback
     /**
      * Translates contact rows to Views.
      */
-    private class FriendsAdapter extends ResourceCursorAdapter {
+    private class FriendsAdapter extends ResourceReadCursorAdapter {
         /**
          * Contact photo is resized according to these measurements.
          */
@@ -434,10 +433,9 @@ public class FriendsFragment extends SprocketsFragment implements LoaderCallback
         }
 
         @Override
-        public void bindView(View view, Context context, Cursor cursor) {
-            FriendHolder friend = FriendHolder.from(view);
+        public void bindView(View view, Context context, ReadCursor c) {
+            FriendHolder friend = ViewHolder.get(view, FriendHolder.class);
             /* load contact photo */
-            ReadCursor c = (ReadCursor) cursor;
             String key = c.getString(Contacts.ANDROID_LOOKUP_KEY);
             long id = c.getLong(Contacts.ANDROID_ID);
             Uri uri = key != null && id > 0 ? ContactsContract.Contacts.getLookupUri(id, key)
@@ -456,7 +454,7 @@ public class FriendsFragment extends SprocketsFragment implements LoaderCallback
         }
     }
 
-    static class FriendHolder extends ViewHolder {
+    public static class FriendHolder extends ViewHolder {
         @InjectView(R.id.photo)
         ImageView mPhoto;
         @InjectView(R.id.name)
@@ -464,9 +462,9 @@ public class FriendsFragment extends SprocketsFragment implements LoaderCallback
         @InjectView(R.id.action)
         TextView mAction;
 
-        private static FriendHolder from(View view) {
-            FriendHolder holder = get(view);
-            return holder != null ? holder : (FriendHolder) new FriendHolder().inject(view);
+        @Override
+        protected FriendHolder newInstance() {
+            return new FriendHolder();
         }
     }
 

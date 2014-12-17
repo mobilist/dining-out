@@ -27,6 +27,7 @@ import net.sf.diningout.R;
 import net.sf.diningout.app.ui.NotificationsFragment.Listener;
 import net.sf.diningout.app.ui.NotificationsFragment.NotificationHolder;
 import net.sf.diningout.data.Sync.Type;
+import net.sf.sprockets.view.ViewHolder;
 
 import butterknife.InjectView;
 
@@ -54,12 +55,11 @@ public class NotificationsActivity extends BaseNavigationDrawerActivity implemen
                 overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
                 break;
             case REVIEW:
-                RestaurantActivity.sPlaceholder = NotificationHolder.from(view).mPhoto
-                        .getDrawable();
-                Bundle options = ActivityOptions.makeScaleUpAnimation(view, 0, 0, view.getWidth(),
-                        view.getHeight()).toBundle();
+                RestaurantActivity.sPlaceholder =
+                        ((NotificationHolder) ViewHolder.get(view)).mPhoto.getDrawable();
                 startActivity(new Intent(this, RestaurantActivity.class).putExtra(EXTRA_ID, id),
-                        options);
+                        ActivityOptions.makeScaleUpAnimation(view, 0, 0,
+                                view.getWidth(), view.getHeight()).toBundle());
                 break;
         }
     }

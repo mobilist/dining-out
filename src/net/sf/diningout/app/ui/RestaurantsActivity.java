@@ -32,6 +32,7 @@ import net.sf.diningout.R;
 import net.sf.diningout.app.ui.RestaurantsFragment.Listener;
 import net.sf.diningout.widget.RestaurantHolder;
 import net.sf.sprockets.view.ActionModePresenter;
+import net.sf.sprockets.view.ViewHolder;
 
 import java.util.Set;
 
@@ -100,7 +101,8 @@ public class RestaurantsActivity extends BaseNavigationDrawerActivity
 
     @Override
     public void onRestaurantClick(View view, long id) {
-        RestaurantActivity.sPlaceholder = RestaurantHolder.from(view).photo.getDrawable();
+        RestaurantActivity.sPlaceholder =
+                ((RestaurantHolder) ViewHolder.get(view)).photo.getDrawable();
         startActivity(new Intent(this, RestaurantActivity.class).putExtra(EXTRA_ID, id),
                 ActivityOptions.makeScaleUpAnimation(view, 0, 0, view.getWidth(), view.getHeight())
                         .toBundle());

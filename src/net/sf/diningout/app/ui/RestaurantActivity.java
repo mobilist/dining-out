@@ -25,7 +25,6 @@ import android.graphics.drawable.Drawable;
 import android.os.Bundle;
 import android.support.v13.app.FragmentPagerAdapter;
 import android.support.v4.view.ViewPager;
-import android.support.v4.view.ViewPager.SimpleOnPageChangeListener;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.View.OnTouchListener;
@@ -35,6 +34,7 @@ import android.view.ViewTreeObserver.OnGlobalLayoutListener;
 import android.widget.AbsListView;
 import android.widget.AbsListView.LayoutParams;
 import android.widget.AbsListView.OnScrollListener;
+import android.widget.ImageView;
 import android.widget.ListAdapter;
 import android.widget.ListView;
 import android.widget.Space;
@@ -47,6 +47,7 @@ import net.sf.sprockets.app.ui.SprocketsListFragment;
 import net.sf.sprockets.content.res.Themes;
 import net.sf.sprockets.view.Animators;
 import net.sf.sprockets.view.Displays;
+import net.sf.sprockets.view.TranslateImagePageChangeListener;
 import net.sf.sprockets.view.Windows;
 import net.sf.sprockets.view.inputmethod.InputMethods;
 import net.sf.sprockets.widget.FadingActionBarScrollListener;
@@ -184,7 +185,7 @@ public class RestaurantActivity extends SprocketsActivity implements OnScrollApp
     /**
      * Synchronises the list scrolls to maintain tabs translation.
      */
-    private class PageChangeListener extends SimpleOnPageChangeListener {
+    private class PageChangeListener extends TranslateImagePageChangeListener {
         /**
          * Previous pager item from which the list scrolls are synchronised.
          */
@@ -193,6 +194,10 @@ public class RestaurantActivity extends SprocketsActivity implements OnScrollApp
          * True if the lists have been synchronised for the paging session.
          */
         private boolean mSynced;
+
+        private PageChangeListener() {
+            super(mPager, ((ImageView) mDetail.findViewById(R.id.photo)));
+        }
 
         @Override
         public void onPageScrollStateChanged(int state) {

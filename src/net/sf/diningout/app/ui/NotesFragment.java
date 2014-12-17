@@ -70,8 +70,8 @@ public class NotesFragment extends TabListFragment implements LoaderCallbacks<Ea
         NotesAdapter adapter = new NotesAdapter();
         setListAdapter(adapter);
         final ListView list = getListView();
-        view = a.getLayoutInflater().inflate(R.layout.notes, list, false);
-        NotesHolder notes = NotesHolder.from(view);
+        view = a.getLayoutInflater().inflate(R.layout.notes_fragment, list, false);
+        NotesHolder notes = ViewHolder.get(view, NotesHolder.class);
         notes.mNotes.setText(mNotes); // restore after config change
         list.addHeaderView(view);
         adapter.notifyDataSetChanged(); // ListView only tells own Observer
@@ -96,9 +96,9 @@ public class NotesFragment extends TabListFragment implements LoaderCallbacks<Ea
     }
 
     @Override
-    public void onLoadFinished(Loader<EasyCursor> loader, EasyCursor data) {
-        if (data.moveToFirst()) {
-            String notes = data.getString(Restaurants.NOTES);
+    public void onLoadFinished(Loader<EasyCursor> loader, EasyCursor c) {
+        if (c.moveToFirst()) {
+            String notes = c.getString(Restaurants.NOTES);
             if (!Objects.equal(notes, mStoredNotes)) { // don't overwrite unless updated elsewhere
                 getNotes().mNotes.setText(notes);
                 mStoredNotes = notes;
@@ -111,7 +111,7 @@ public class NotesFragment extends TabListFragment implements LoaderCallbacks<Ea
      */
     private NotesHolder getNotes() {
         ListView view = getListView();
-        return NotesHolder.from(view.getAdapter().getView(1, null, view));
+        return ViewHolder.get(view.getAdapter().getView(1, null, view));
     }
 
     @Override
@@ -165,13 +165,13 @@ public class NotesFragment extends TabListFragment implements LoaderCallbacks<Ea
         }
     }
 
-    static class NotesHolder extends ViewHolder {
+    public static class NotesHolder extends ViewHolder {
         @InjectView(R.id.notes)
         EditText mNotes;
 
-        private static NotesHolder from(View view) {
-            NotesHolder holder = get(view);
-            return holder != null ? holder : (NotesHolder) new NotesHolder().inject(view);
+        @Override
+        protected NotesHolder newInstance() {
+            return new NotesHolder();
         }
     }
 }

@@ -3,12 +3,11 @@
                 android:layout_width="match_parent"
                 android:layout_height="match_parent">
 
-    <ImageView
+    <net.sf.sprockets.widget.ObservableImageView
         android:id="@+id/photo"
         android:layout_width="match_parent"
         android:layout_height="@dimen/restaurant_photo_height"
-        android:contentDescription="@string/restaurant_photo"
-        android:scaleType="fitXY"/>
+        android:contentDescription="@string/restaurant_photo"/>
 
     <TextView
         android:id="@+id/name"

@@ -171,20 +171,20 @@ public class RestaurantFragment extends SprocketsFragment implements LoaderCallb
     }
 
     @Override
-    public void onLoadFinished(Loader<EasyCursor> loader, EasyCursor data) {
-        if (mNameView != null && data.moveToFirst()) {
-            mGoogleId = data.getString(Restaurants.GOOGLE_ID);
-            mGoogleUrl = data.getString(Restaurants.GOOGLE_URL);
-            mName = data.getString(Restaurants.NAME);
+    public void onLoadFinished(Loader<EasyCursor> loader, EasyCursor c) {
+        if (mNameView != null && c.moveToFirst()) {
+            mGoogleId = c.getString(Restaurants.GOOGLE_ID);
+            mGoogleUrl = c.getString(Restaurants.GOOGLE_URL);
+            mName = c.getString(Restaurants.NAME);
             mNameView.setText(mName);
-            mAddress = data.getString(Restaurants.ADDRESS);
-            String vicinity = data.getString(Restaurants.VICINITY);
+            mAddress = c.getString(Restaurants.ADDRESS);
+            String vicinity = c.getString(Restaurants.VICINITY);
             mVicinity.setText(vicinity);
-            mLat = data.getDouble(Restaurants.LATITUDE);
-            mLong = data.getDouble(Restaurants.LONGITUDE);
-            mIntlPhone = data.getString(Restaurants.INTL_PHONE);
-            mLocalPhone.setText(data.getString(Restaurants.LOCAL_PHONE));
-            mUrl = data.getString(Restaurants.URL);
+            mLat = c.getDouble(Restaurants.LATITUDE);
+            mLong = c.getDouble(Restaurants.LONGITUDE);
+            mIntlPhone = c.getString(Restaurants.INTL_PHONE);
+            mLocalPhone.setText(c.getString(Restaurants.LOCAL_PHONE));
+            mUrl = c.getString(Restaurants.URL);
             if (!TextUtils.isEmpty(mUrl)) {
                 mWebsite.setText(Uri.parse(mUrl).getHost());
             }
@@ -227,8 +227,8 @@ public class RestaurantFragment extends SprocketsFragment implements LoaderCallb
             mShare.putExtra(EXTRA_TEXT, text.toString());
         }
         if (mPhoto != null && !mPhotoLoaded) {
-            RequestCreator req = Picasso.with(a).load(RestaurantPhotos.uriForRestaurant(mId)).fit()
-                    .centerCrop().transform(LEFT);
+            RequestCreator req = Picasso.with(a).load(RestaurantPhotos.uriForRestaurant(mId))
+                    .transform(LEFT);
             if (RestaurantActivity.sPlaceholder != null) {
                 req.placeholder(RestaurantActivity.sPlaceholder);
                 RestaurantActivity.sPlaceholder = null; // only use once, bounds can be reset later

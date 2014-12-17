@@ -18,11 +18,9 @@
 package net.sf.diningout.widget;
 
 import android.content.Context;
-import android.database.Cursor;
 import android.text.Html;
 import android.text.format.DateUtils;
 import android.view.View;
-import android.widget.ResourceCursorAdapter;
 import android.widget.TextView;
 
 import net.sf.diningout.R;
@@ -30,6 +28,7 @@ import net.sf.diningout.provider.Contract.Contacts;
 import net.sf.diningout.provider.Contract.Reviews;
 import net.sf.sprockets.database.EasyCursor;
 import net.sf.sprockets.view.ViewHolder;
+import net.sf.sprockets.widget.ResourceEasyCursorAdapter;
 
 import butterknife.InjectView;
 
@@ -39,15 +38,14 @@ import static android.text.format.DateUtils.MINUTE_IN_MILLIS;
 /**
  * Translates review rows to Views.
  */
-public class ReviewAdapter extends ResourceCursorAdapter {
+public class ReviewAdapter extends ResourceEasyCursorAdapter {
     public ReviewAdapter(Context context) {
         super(context, R.layout.reviews_adapter, null, 0);
     }
 
     @Override
-    public void bindView(View view, Context context, Cursor cursor) {
-        ReviewHolder review = ReviewHolder.from(view);
-        EasyCursor c = (EasyCursor) cursor;
+    public void bindView(View view, Context context, EasyCursor c) {
+        ReviewHolder review = ViewHolder.get(view, ReviewHolder.class);
         review.mName.setText(name(context, c));
         review.mTime.setText(time(context, c));
         review.mRating.setText(c.getString(Reviews.RATING));
@@ -90,7 +88,7 @@ public class ReviewAdapter extends ResourceCursorAdapter {
         return Html.fromHtml(c.getString(Reviews.COMMENTS).replace("\n", "<br />"));
     }
 
-    static class ReviewHolder extends ViewHolder {
+    public static class ReviewHolder extends ViewHolder {
         @InjectView(R.id.name)
         TextView mName;
         @InjectView(R.id.time)
@@ -100,9 +98,9 @@ public class ReviewAdapter extends ResourceCursorAdapter {
         @InjectView(R.id.comments)
         TextView mComments;
 
-        private static ReviewHolder from(View view) {
-            ReviewHolder holder = get(view);
-            return holder != null ? holder : (ReviewHolder) new ReviewHolder().inject(view);
+        @Override
+        protected ReviewHolder newInstance() {
+            return new ReviewHolder();
         }
     }
 }

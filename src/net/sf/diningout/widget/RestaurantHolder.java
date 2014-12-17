@@ -20,7 +20,6 @@ package net.sf.diningout.widget;
 import android.content.Context;
 import android.net.Uri;
 import android.text.format.DateUtils;
-import android.view.View;
 import android.widget.ImageView;
 import android.widget.TextView;
 
@@ -50,15 +49,10 @@ public class RestaurantHolder extends ViewHolder {
     public TextView name;
     @InjectView(R.id.detail)
     public TextView detail;
-    private Context mContext;
 
-    public static RestaurantHolder from(View view) {
-        RestaurantHolder holder = get(view);
-        if (holder == null) {
-            holder = new RestaurantHolder().inject(view);
-            holder.mContext = view.getContext();
-        }
-        return holder;
+    @Override
+    protected RestaurantHolder newInstance() {
+        return new RestaurantHolder();
     }
 
     /**
@@ -66,7 +60,7 @@ public class RestaurantHolder extends ViewHolder {
      * restaurant's photo.
      */
     RestaurantHolder photo(Uri uri, GridCard card) {
-        photo(Picasso.with(mContext).load(uri), card);
+        photo(Picasso.with(context()).load(uri), card);
         return this;
     }
 
@@ -75,7 +69,7 @@ public class RestaurantHolder extends ViewHolder {
      * as the restaurant's photo.
      */
     RestaurantHolder photo(String url, GridCard card) {
-        photo(Picasso.with(mContext).load(url), card);
+        photo(Picasso.with(context()).load(url), card);
         return this;
     }
 
@@ -97,7 +91,7 @@ public class RestaurantHolder extends ViewHolder {
      */
     RestaurantHolder rating(float rating) {
         if (rating > 0.0f) {
-            detail.setText(mContext.getString(R.string.rating, rating));
+            detail.setText(context().getString(R.string.rating, rating));
             detail.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_action_important_small, 0,
                     0, 0);
             detail.setVisibility(VISIBLE);
@@ -117,7 +111,7 @@ public class RestaurantHolder extends ViewHolder {
             long now = System.currentTimeMillis();
             detail.setText(now - millis > MINUTE_IN_MILLIS
                     ? DateUtils.getRelativeTimeSpanString(millis, now, 0, FORMAT_ABBREV_ALL)
-                    : mContext.getString(R.string.recent_time));
+                    : context().getString(R.string.recent_time));
         } else {
             detail.setText(R.string.never);
         }
@@ -131,7 +125,7 @@ public class RestaurantHolder extends ViewHolder {
      */
     RestaurantHolder distance(double distance) {
         if (distance >= 0.0) {
-            detail.setText(mContext.getString(R.string.distance_km, distance));
+            detail.setText(context().getString(R.string.distance_km, distance));
             detail.setCompoundDrawablesWithIntrinsicBounds(
                     R.drawable.ic_action_location_found_small, 0, 0, 0);
             detail.setVisibility(VISIBLE);
@@ -139,5 +133,9 @@ public class RestaurantHolder extends ViewHolder {
             detail.setVisibility(GONE);
         }
         return this;
+    }
+
+    private Context context() {
+        return photo.getContext();
     }
 }

@@ -22,7 +22,6 @@ import android.app.LoaderManager.LoaderCallbacks;
 import android.content.Context;
 import android.content.Intent;
 import android.content.Loader;
-import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.provider.ContactsContract;
@@ -38,7 +37,6 @@ import android.widget.AdapterView.OnItemClickListener;
 import android.widget.CursorAdapter;
 import android.widget.GridView;
 import android.widget.ImageView;
-import android.widget.ResourceCursorAdapter;
 import android.widget.TextView;
 
 import com.squareup.picasso.Picasso;
@@ -56,6 +54,7 @@ import net.sf.sprockets.database.sqlite.SQLite;
 import net.sf.sprockets.util.StringArrays;
 import net.sf.sprockets.view.ViewHolder;
 import net.sf.sprockets.widget.GridCard;
+import net.sf.sprockets.widget.ResourceEasyCursorAdapter;
 
 import butterknife.ButterKnife;
 import butterknife.InjectView;
@@ -121,14 +120,14 @@ public class NotificationsFragment extends SprocketsFragment implements LoaderCa
     }
 
     @Override
-    public void onLoadFinished(Loader<EasyCursor> loader, EasyCursor data) {
+    public void onLoadFinished(Loader<EasyCursor> loader, EasyCursor c) {
         if (mGrid != null) {
-            if (data.getCount() == 0 && mGrid.getEmptyView() == null) {
+            if (c.getCount() == 0 && mGrid.getEmptyView() == null) {
                 View view = getView();
                 mGrid.setEmptyView(((ViewStub) view.findViewById(R.id.empty)).inflate());
                 ButterKnife.inject(this, view);
             }
-            ((CursorAdapter) mGrid.getAdapter()).swapCursor(data);
+            ((CursorAdapter) mGrid.getAdapter()).swapCursor(c);
         }
     }
 
@@ -183,7 +182,7 @@ public class NotificationsFragment extends SprocketsFragment implements LoaderCa
     /**
      * Translates notification rows to Views.
      */
-    private class NotificationsAdapter extends ResourceCursorAdapter {
+    private class NotificationsAdapter extends ResourceEasyCursorAdapter {
         /**
          * Notification photo is resized according to these measurements.
          */
@@ -195,9 +194,8 @@ public class NotificationsFragment extends SprocketsFragment implements LoaderCa
         }
 
         @Override
-        public void bindView(View view, Context context, Cursor cursor) {
-            NotificationHolder notif = NotificationHolder.from(view);
-            EasyCursor c = (EasyCursor) cursor;
+        public void bindView(View view, Context context, EasyCursor c) {
+            NotificationHolder notif = ViewHolder.get(view, NotificationHolder.class);
             Uri photo = null;
             String contact = c.getString(aliased_(SyncsJoinAll.CONTACT_NAME));
             if (contact == null) {
@@ -232,7 +230,7 @@ public class NotificationsFragment extends SprocketsFragment implements LoaderCa
         }
     }
 
-    static class NotificationHolder extends ViewHolder {
+    public static class NotificationHolder extends ViewHolder {
         @InjectView(R.id.photo)
         ImageView mPhoto;
         @InjectView(R.id.action)
@@ -240,10 +238,9 @@ public class NotificationsFragment extends SprocketsFragment implements LoaderCa
         @InjectView(R.id.time)
         TextView mTime;
 
-        static NotificationHolder from(View view) {
-            NotificationHolder holder = get(view);
-            return holder != null ? holder
-                    : (NotificationHolder) new NotificationHolder().inject(view);
+        @Override
+        protected NotificationHolder newInstance() {
+            return new NotificationHolder();
         }
     }
 }

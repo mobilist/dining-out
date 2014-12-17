@@ -25,6 +25,7 @@ import android.widget.GridView;
 import net.sf.diningout.R;
 import net.sf.diningout.provider.Contract.RestaurantPhotos;
 import net.sf.sprockets.google.Place;
+import net.sf.sprockets.view.ViewHolder;
 import net.sf.sprockets.widget.GooglePlacesAdapter;
 import net.sf.sprockets.widget.GridCard;
 
@@ -48,8 +49,8 @@ public class RestaurantPlacesAdapter extends GooglePlacesAdapter {
                     .inflate(R.layout.restaurants_adapter, parent, false);
         }
         String url = RestaurantPhotos.url(place, mCard.getWidth(), mCard.getHeight());
-        RestaurantHolder.from(view).photo(url, mCard).name(place.getName())
-                .rating(place.getRating());
+        ViewHolder.get(view, RestaurantHolder.class)
+                .photo(url, mCard).name(place.getName()).rating(place.getRating());
         return view;
     }
 }

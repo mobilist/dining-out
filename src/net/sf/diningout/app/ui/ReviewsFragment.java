@@ -210,14 +210,14 @@ public class ReviewsFragment extends TabListFragment implements LoaderCallbacks<
     }
 
     @Override
-    public void onLoadFinished(Loader<EasyCursor> loader, EasyCursor data) {
+    public void onLoadFinished(Loader<EasyCursor> loader, EasyCursor c) {
         switch (loader.getId()) {
             case LOADER_REVIEWS:
-                ((CursorAdapter) getListAdapter()).swapCursor(data);
+                ((CursorAdapter) getListAdapter()).swapCursor(c);
                 updateActionMode();
                 switch (Type.get(mTypeId)) {
                     case PRIVATE:
-                        if (!mEditing && data.getCount() == 0) {
+                        if (!mEditing && c.getCount() == 0) {
                             editReview(false);
                         } else {
                             a.invalidateOptionsMenu(); // show add/share now
@@ -225,7 +225,7 @@ public class ReviewsFragment extends TabListFragment implements LoaderCallbacks<
                         break;
                     case GOOGLE:
                         ListView list = getListView();
-                        if (data.getCount() == 0) {
+                        if (c.getCount() == 0) {
                             if (list.getHeaderViewsCount() == 1) { // add header View
                                 View view = a.getLayoutInflater()
                                         .inflate(R.layout.reviews_public_empty, list, false);
@@ -239,14 +239,14 @@ public class ReviewsFragment extends TabListFragment implements LoaderCallbacks<
                 }
                 break;
             case LOADER_REVIEW_DRAFT:
-                if (data.moveToFirst()) {
-                    long version = data.getLong(ReviewDrafts.VERSION);
+                if (c.moveToFirst()) {
+                    long version = c.getLong(ReviewDrafts.VERSION);
                     if (mReviewId == 0) {
-                        Status status = Status.get(data.getInt(ReviewDrafts.STATUS_ID));
-                        if (status == ACTIVE && version != mDraftVersion) {
+                        Status status = Status.get(c.getInt(ReviewDrafts.STATUS_ID));
+                        if (status == ACTIVE && version > mDraftVersion) {
                             EditReviewHolder review = !mEditing ? editReview(false) : getReview();
-                            review.mRatings.setSelection(data.getInt(ReviewDrafts.RATING) - 1);
-                            review.mComments.setText(data.getString(ReviewDrafts.COMMENTS));
+                            review.mRatings.setSelection(c.getInt(ReviewDrafts.RATING) - 1);
+                            review.mComments.setText(c.getString(ReviewDrafts.COMMENTS));
                         } else if (status == DELETED && mEditing && getReview() != null
                                 && mDraftVersion >= 0 && version > mDraftVersion) {
                             discardReview();
@@ -330,12 +330,9 @@ public class ReviewsFragment extends TabListFragment implements LoaderCallbacks<
      */
     private void discard() {
         if (mReviewId == 0) {
-            if (deleteDraft() == 0) {
-                discardReview();
-            }
-        } else {
-            discardReview();
+            deleteDraft();
         }
+        discardReview();
     }
 
     /**
@@ -362,7 +359,7 @@ public class ReviewsFragment extends TabListFragment implements LoaderCallbacks<
     private EditReviewHolder editReview(boolean scroll) {
         ListView list = getListView();
         View view = a.getLayoutInflater().inflate(R.layout.reviews_edit, list, false);
-        EditReviewHolder r = EditReviewHolder.from(view);
+        EditReviewHolder r = ViewHolder.get(view, EditReviewHolder.class);
         r.mTitle.setText(mReviewId == 0 ? R.string.add_review_title : R.string.edit_review_title);
         r.mRatings.setAdapter(ArrayAdapter.createFromResource(a, R.array.ratings, R.layout.rating));
         r.mRatings.setSelection(mRatingPos >= 0 ? mRatingPos : DEFAULT_RATING_POS);
@@ -442,7 +439,8 @@ public class ReviewsFragment extends TabListFragment implements LoaderCallbacks<
     private EditReviewHolder getReview() {
         ListView view = getListView();
         return mEditing && view.getHeaderViewsCount() > 1
-                ? EditReviewHolder.from(view.getAdapter().getView(1, null, view)) : null;
+                ? (EditReviewHolder) ViewHolder.get(view.getAdapter().getView(1, null, view))
+                : null;
     }
 
     /**
@@ -524,6 +522,7 @@ public class ReviewsFragment extends TabListFragment implements LoaderCallbacks<
         vals.put(ReviewDrafts.RATING, rating);
         vals.put(ReviewDrafts.STATUS_ID, status.id);
         vals.put(ReviewDrafts.DIRTY, 1);
+        mDraftVersion++;
         return vals;
     }
 
@@ -636,7 +635,7 @@ public class ReviewsFragment extends TabListFragment implements LoaderCallbacks<
         }
     }
 
-    static class EditReviewHolder extends ViewHolder {
+    public static class EditReviewHolder extends ViewHolder {
         @InjectView(R.id.title)
         TextView mTitle;
         @InjectView(R.id.ratings)
@@ -644,9 +643,9 @@ public class ReviewsFragment extends TabListFragment implements LoaderCallbacks<
         @InjectView(R.id.comments)
         EditText mComments;
 
-        private static EditReviewHolder from(View view) {
-            EditReviewHolder holder = get(view);
-            return holder != null ? holder : (EditReviewHolder) new EditReviewHolder().inject(view);
+        @Override
+        protected EditReviewHolder newInstance() {
+            return new EditReviewHolder();
         }
     }
 }

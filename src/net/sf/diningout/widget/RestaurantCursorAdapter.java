@@ -21,18 +21,19 @@ import android.content.Context;
 import android.database.Cursor;
 import android.view.View;
 import android.widget.GridView;
-import android.widget.ResourceCursorAdapter;
 
 import net.sf.diningout.R;
 import net.sf.diningout.provider.Contract.RestaurantPhotos;
 import net.sf.diningout.provider.Contract.Restaurants;
 import net.sf.sprockets.database.EasyCursor;
+import net.sf.sprockets.view.ViewHolder;
 import net.sf.sprockets.widget.GridCard;
+import net.sf.sprockets.widget.ResourceEasyCursorAdapter;
 
 /**
  * Translates restaurant rows to Views.
  */
-public class RestaurantCursorAdapter extends ResourceCursorAdapter {
+public class RestaurantCursorAdapter extends ResourceEasyCursorAdapter {
     /**
      * Restaurant photo is resized according to these measurements.
      */
@@ -66,9 +67,8 @@ public class RestaurantCursorAdapter extends ResourceCursorAdapter {
     }
 
     @Override
-    public void bindView(View view, Context context, Cursor cursor) {
-        RestaurantHolder restaurant = RestaurantHolder.from(view);
-        EasyCursor c = (EasyCursor) cursor;
+    public void bindView(View view, Context context, EasyCursor c) {
+        RestaurantHolder restaurant = ViewHolder.get(view, RestaurantHolder.class);
         restaurant.photo(RestaurantPhotos.uriForRestaurant(c.getLong(Restaurants._ID)), mCard)
                 .name(c.getString(Restaurants.NAME));
         if (mHasRating) {

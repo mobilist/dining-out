@@ -21,7 +21,6 @@ import android.os.Bundle;
 import android.support.v4.widget.DrawerLayout;
 
 import net.sf.diningout.R;
-import net.sf.sprockets.preference.SprocketsPreferenceFragment;
 
 import butterknife.InjectView;
 
@@ -37,13 +36,5 @@ public class SettingsActivity extends BaseNavigationDrawerActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.settings_activity);
         setDrawerLayout(mDrawerLayout);
-    }
-
-    public static class SettingsFragment extends SprocketsPreferenceFragment {
-        @Override
-        public void onCreate(Bundle savedInstanceState) {
-            super.onCreate(savedInstanceState);
-            addPreferencesFromResource(R.xml.preferences);
-        }
     }
 }
