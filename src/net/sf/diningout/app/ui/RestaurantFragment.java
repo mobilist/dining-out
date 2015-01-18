@@ -77,11 +77,13 @@ import static android.content.Intent.ACTION_SEND;
 import static android.content.Intent.ACTION_VIEW;
 import static android.content.Intent.EXTRA_SUBJECT;
 import static android.content.Intent.EXTRA_TEXT;
+import static android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP;
 import static android.text.Spanned.SPAN_INCLUSIVE_INCLUSIVE;
 import static butterknife.ButterKnife.findById;
 import static net.sf.diningout.app.ui.RestaurantActivity.EXTRA_ID;
-import static net.sf.diningout.picasso.OverlayTransformation.LEFT;
+import static net.sf.diningout.app.ui.RestaurantsActivity.EXTRA_DELETE_ID;
 import static net.sf.diningout.picasso.Placeholders.get;
+import static net.sf.diningout.picasso.Transformations.LEFT;
 import static net.sf.sprockets.app.SprocketsApplication.cr;
 import static net.sf.sprockets.app.SprocketsApplication.res;
 import static net.sf.sprockets.gms.analytics.Trackers.event;
@@ -165,7 +167,7 @@ public class RestaurantFragment extends SprocketsFragment implements LoaderCallb
         String[] proj = {Restaurants.GOOGLE_ID, Restaurants.GOOGLE_URL, Restaurants.NAME,
                 Restaurants.ADDRESS, Restaurants.VICINITY, Restaurants.LATITUDE,
                 Restaurants.LONGITUDE, Restaurants.INTL_PHONE, Restaurants.LOCAL_PHONE,
-                Restaurants.URL};
+                Restaurants.URL, Restaurants.COLOR};
         return new EasyCursorLoader(a, ContentUris.withAppendedId(Restaurants.CONTENT_URI, mId),
                 proj, null, null, null);
     }
@@ -233,7 +235,7 @@ public class RestaurantFragment extends SprocketsFragment implements LoaderCallb
                 req.placeholder(RestaurantActivity.sPlaceholder);
                 RestaurantActivity.sPlaceholder = null; // only use once, bounds can be reset later
             } else {
-                req.placeholder(get());
+                req.placeholder(get(c));
             }
             req.into(mPhoto, new EmptyCallback() {
                 @Override
@@ -269,6 +271,10 @@ public class RestaurantFragment extends SprocketsFragment implements LoaderCallb
                 a.startService(new Intent(a, RestaurantService.class)
                         .putExtra(RestaurantService.EXTRA_ID, mId));
                 event("restaurant", "refresh");
+                return true;
+            case R.id.delete:
+                startActivity(new Intent(a, RestaurantsActivity.class)
+                        .putExtra(EXTRA_DELETE_ID, mId).addFlags(FLAG_ACTIVITY_CLEAR_TOP));
                 return true;
         }
         return super.onOptionsItemSelected(item);

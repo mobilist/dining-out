@@ -81,8 +81,8 @@ import static android.view.View.GONE;
 import static android.view.View.VISIBLE;
 import static net.sf.diningout.app.ReviewsService.EXTRA_ID;
 import static net.sf.diningout.data.Status.ACTIVE;
-import static net.sf.diningout.picasso.OverlayTransformation.UP;
 import static net.sf.diningout.picasso.Placeholders.get;
+import static net.sf.diningout.picasso.Transformations.UP;
 import static net.sf.diningout.provider.Contract.ACTION_CONTACTS_SYNCED;
 import static net.sf.diningout.provider.Contract.ACTION_CONTACTS_SYNCING;
 import static net.sf.diningout.provider.Contract.AUTHORITY;
@@ -172,8 +172,8 @@ public class FriendsFragment extends SprocketsFragment implements LoaderCallback
 
     @Override
     public Loader<ReadCursor> onCreateLoader(int id, Bundle args) {
-        String[] proj = {_ID, Contacts.GLOBAL_ID, Contacts.ANDROID_LOOKUP_KEY,
-                Contacts.ANDROID_ID, Contacts.NAME, Contacts.EMAIL, Contacts.FOLLOWING};
+        String[] proj = {_ID, Contacts.GLOBAL_ID, Contacts.ANDROID_LOOKUP_KEY, Contacts.ANDROID_ID,
+                Contacts.NAME, Contacts.EMAIL, Contacts.FOLLOWING, Contacts.COLOR};
         String sel = Contacts.STATUS_ID + " = ?";
         String[] selArgs = {String.valueOf(ACTIVE.id)};
         String order = Contacts.GLOBAL_ID + " IS NULL, " + Contacts.NAME + ", " + Contacts.EMAIL;
@@ -441,7 +441,7 @@ public class FriendsFragment extends SprocketsFragment implements LoaderCallback
             Uri uri = key != null && id > 0 ? ContactsContract.Contacts.getLookupUri(id, key)
                     : null;
             Picasso.with(context).load(uri).resize(mCard.getWidth(), mCard.getHeight())
-                    .centerCrop().transform(UP).placeholder(get()).into(friend.mPhoto);
+                    .centerCrop().transform(UP).placeholder(get(c)).into(friend.mPhoto);
             /* select if user already following or deselect if unfollowed remotely */
             boolean isUser = !c.isNull(Contacts.GLOBAL_ID);
             if (isUser && !c.wasRead()) {

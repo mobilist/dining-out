@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 pushbit <pushbit@gmail.com>
+ * Copyright 2014-2015 pushbit <pushbit@gmail.com>
  * 
  * This file is part of Dining Out.
  * 
@@ -62,11 +62,13 @@ import static net.sf.diningout.data.Status.ACTIVE;
 import static net.sf.diningout.provider.Contract.AUTHORITY_URI;
 import static net.sf.diningout.provider.Contract.CALL_UPDATE_RESTAURANT_LAST_VISIT;
 import static net.sf.diningout.provider.Contract.CALL_UPDATE_RESTAURANT_RATING;
+import static net.sf.sprockets.app.SprocketsApplication.context;
 import static net.sf.sprockets.app.SprocketsApplication.cr;
 import static net.sf.sprockets.app.SprocketsApplication.res;
 import static net.sf.sprockets.gms.analytics.Trackers.event;
 import static net.sf.sprockets.gms.analytics.Trackers.exception;
 import static net.sf.sprockets.google.Places.Response.Status.OK;
+import static net.sf.sprockets.io.MoreFiles.DOT_PART;
 
 /**
  * Updates details, reviews, and photos for a restaurant. Callers must include {@link #EXTRA_ID} in
@@ -86,20 +88,6 @@ public class RestaurantService extends IntentService {
     @Override
     protected void onHandleIntent(Intent intent) {
         download(intent.getLongExtra(EXTRA_ID, 0L));
-    }
-
-    /**
-     * Add a placeholder for a restaurant with the global ID.
-     *
-     * @return id of the new restaurant or -1 if an error occurred
-     */
-    public static long add(long globalId) {
-        ContentValues vals = new ContentValues(4);
-        vals.put(Restaurants.GLOBAL_ID, globalId);
-        vals.put(Restaurants.NAME, "");
-        vals.put(Restaurants.NORMALISED_NAME, "");
-        vals.put(Restaurants.DIRTY, 0);
-        return ContentUris.parseId(cr().insert(Restaurants.CONTENT_URI, vals));
     }
 
     /**
@@ -144,6 +132,7 @@ public class RestaurantService extends IntentService {
         if (restaurant != null) { // save details
             restaurant.status = ACTIVE; // in case re-adding after deleting
             ContentValues vals = Restaurants.values(restaurant);
+            Restaurants.deleteConflict(restaurant.localId, restaurant.globalId);
             cr.update(uri, vals, null, null);
             try {
                 photo(id, vals);
@@ -242,8 +231,8 @@ public class RestaurantService extends IntentService {
         if (id > 0 && !TextUtils.isEmpty(etag)) {
             ContentValues vals = new ContentValues(1);
             vals.put(RestaurantPhotos.ETAG, etag);
-            cr().update(ContentUris.withAppendedId(RestaurantPhotos.CONTENT_URI, id), vals, null,
-                    null);
+            cr().update(ContentUris.withAppendedId(RestaurantPhotos.CONTENT_URI, id), vals,
+                    null, null);
         }
     }
 
@@ -277,28 +266,32 @@ public class RestaurantService extends IntentService {
      */
     private static String photo(long id, final long restaurantId, String url) throws IOException {
         File file = RestaurantPhotos.file(id, restaurantId);
-        if (file != null) {
-            Files.createParentDirs(file);
-            URLConnection con = HttpClient.openConnection(url);
-            Closer closer = Closer.create();
-            try {
-                ByteStreams.copy(closer.register(con.getInputStream()),
-                        closer.register(new FileOutputStream(file)));
-            } catch (Throwable e) {
-                throw closer.rethrow(e);
-            } finally {
-                closer.close();
-            }
-            /* notify observers about new photo */
-            new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
-                @Override
-                public void run() {
-                    Uri uri = ContentUris.withAppendedId(Restaurants.CONTENT_URI, restaurantId);
-                    cr().notifyChange(uri, null, false);
-                }
-            }, 500L); // when the file will hopefully already be flushed to disk
-            return con.getHeaderField("ETag");
+        if (file == null) {
+            return null;
         }
-        return null;
+        Files.createParentDirs(file);
+        File part = new File(file.getParentFile(), file.getName() + DOT_PART);
+        URLConnection con = HttpClient.openConnection(url);
+        Closer closer = Closer.create();
+        try {
+            ByteStreams.copy(closer.register(con.getInputStream()),
+                    closer.register(new FileOutputStream(part)));
+        } catch (Throwable e) {
+            throw closer.rethrow(e);
+        } finally {
+            closer.close();
+        }
+        part.renameTo(file);
+        /* notify observers about new photo */
+        new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                cr().notifyChange(ContentUris.withAppendedId(Restaurants.CONTENT_URI, restaurantId),
+                        null, false);
+            }
+        }, 500L); // when the file will hopefully already be flushed to disk
+        context().startService(new Intent(context(), RestaurantColorService.class)
+                .putExtra(RestaurantColorService.EXTRA_ID, restaurantId));
+        return con.getHeaderField("ETag");
     }
 }

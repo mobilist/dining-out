@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 pushbit <pushbit@gmail.com>
+ * Copyright 2014-2015 pushbit <pushbit@gmail.com>
  *
  * This file is part of Dining Out.
  *
@@ -17,8 +17,11 @@
 
 package net.sf.diningout.picasso;
 
+import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 
+import net.sf.diningout.provider.Contract.Columns;
+import net.sf.sprockets.database.EasyCursor;
 import net.sf.sprockets.graphics.drawable.Drawables;
 
 /**
@@ -33,5 +36,15 @@ public class Placeholders {
      */
     public static Drawable get() {
         return Drawables.darkColor();
+    }
+
+    /**
+     * Get a placeholder with the cursor's {@link Columns#COLOR color}.
+     *
+     * @return default placeholder if the cursor is null or does not have a color value
+     */
+    public static Drawable get(EasyCursor c) {
+        return c != null && !c.isNull(Columns.COLOR) ? new ColorDrawable(c.getInt(Columns.COLOR))
+                : get();
     }
 }

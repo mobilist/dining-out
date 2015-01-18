@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2014 pushbit <pushbit@gmail.com>
+ * Copyright 2013-2015 pushbit <pushbit@gmail.com>
  * 
  * This file is part of Dining Out.
  * 
@@ -18,6 +18,7 @@
 package net.sf.diningout.app;
 
 import android.content.ContentResolver;
+import android.content.Intent;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
 
@@ -64,6 +65,13 @@ public class AppApplication extends VersionedApplication {
             if (file != null) {
                 FileUtils.deleteQuietly(new File(file, "images"));
             }
+        }
+        if (oldCode == 0) { // nothing else to do if run for the first time
+            return;
+        }
+        if (oldCode < 107) { // get colors of existing photos
+            startService(new Intent(this, RestaurantColorService.class));
+            startService(new Intent(this, FriendColorService.class));
         }
     }
 }

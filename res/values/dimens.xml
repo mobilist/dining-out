@@ -3,6 +3,7 @@
     <dimen name="navigation_drawer_width">240dp</dimen>
     <dimen name="restaurant_photo_width">480dp</dimen>
     <dimen name="restaurant_photo_height">298dp</dimen>
+    <dimen name="attributions">11sp</dimen>
     <dimen name="max_action_bar_height_plus_cards_sibling_margin">66dp</dimen>
     <!-- restaurant_photo_width * .75 -->
     <dimen name="restaurant_detail_max_width">360dp</dimen>

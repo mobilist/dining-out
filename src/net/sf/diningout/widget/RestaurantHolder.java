@@ -28,6 +28,8 @@ import com.squareup.picasso.RequestCreator;
 
 import net.sf.diningout.R;
 import net.sf.diningout.picasso.Placeholders;
+import net.sf.diningout.provider.Contract.Columns;
+import net.sf.sprockets.database.EasyCursor;
 import net.sf.sprockets.view.ViewHolder;
 import net.sf.sprockets.widget.GridCard;
 
@@ -37,7 +39,7 @@ import static android.text.format.DateUtils.FORMAT_ABBREV_ALL;
 import static android.text.format.DateUtils.MINUTE_IN_MILLIS;
 import static android.view.View.GONE;
 import static android.view.View.VISIBLE;
-import static net.sf.diningout.picasso.OverlayTransformation.DOWN;
+import static net.sf.diningout.picasso.Transformations.DOWN;
 
 /**
  * Views for a restaurant in a list and methods to update their contents.
@@ -57,10 +59,10 @@ public class RestaurantHolder extends ViewHolder {
 
     /**
      * Load the URI, resize it according to the GridCard measurements, and set it as the
-     * restaurant's photo.
+     * restaurant's photo. Use the cursor's {@link Columns#COLOR color} for the placeholder.
      */
-    RestaurantHolder photo(Uri uri, GridCard card) {
-        photo(Picasso.with(context()).load(uri), card);
+    RestaurantHolder photo(Uri uri, GridCard card, EasyCursor c) {
+        photo(Picasso.with(context()).load(uri), card, c);
         return this;
     }
 
@@ -69,13 +71,13 @@ public class RestaurantHolder extends ViewHolder {
      * as the restaurant's photo.
      */
     RestaurantHolder photo(String url, GridCard card) {
-        photo(Picasso.with(context()).load(url), card);
+        photo(Picasso.with(context()).load(url), card, null);
         return this;
     }
 
-    private void photo(RequestCreator req, GridCard card) {
+    private void photo(RequestCreator req, GridCard card, EasyCursor c) {
         req.resize(card.getWidth(), card.getHeight()).centerCrop().transform(DOWN)
-                .placeholder(Placeholders.get()).into(photo);
+                .placeholder(Placeholders.get(c)).into(photo);
     }
 
     /**

@@ -114,6 +114,7 @@ public class RestaurantAddActivity extends SprocketsActivity implements LoaderCa
                     vals.put(Restaurants.NORMALISED_NAME, normalise(mName));
                     if (id <= 0) { // insert new
                         vals.put(Restaurants.GOOGLE_ID, mId);
+                        vals.put(Restaurants.COLOR, Restaurants.defaultColor());
                         id = ContentUris.parseId(cr().insert(Restaurants.CONTENT_URI, vals));
                     } else if (c.getInt(Restaurants.STATUS_ID) != ACTIVE.id) { // resurrect
                         vals.put(Restaurants.STATUS_ID, ACTIVE.id);
@@ -131,6 +132,7 @@ public class RestaurantAddActivity extends SprocketsActivity implements LoaderCa
                     if (!TextUtils.isEmpty(name)) {
                         vals.put(Restaurants.NAME, name);
                         vals.put(Restaurants.NORMALISED_NAME, normalise(name));
+                        vals.put(Restaurants.COLOR, Restaurants.defaultColor());
                         id = ContentUris.parseId(cr().insert(Restaurants.CONTENT_URI, vals));
                     }
                 }

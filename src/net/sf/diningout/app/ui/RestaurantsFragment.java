@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2014 pushbit <pushbit@gmail.com>
+ * Copyright 2013-2015 pushbit <pushbit@gmail.com>
  * 
  * This file is part of Dining Out.
  * 
@@ -77,8 +77,8 @@ import static net.sf.sprockets.gms.analytics.Trackers.event;
  * Displays a list of the user's restaurants. Activities that attach this must implement
  * {@link Listener}.
  */
-public class RestaurantsFragment extends SprocketsFragment implements LoaderCallbacks<EasyCursor>,
-        OnItemClickListener {
+public class RestaurantsFragment extends SprocketsFragment
+        implements LoaderCallbacks<EasyCursor>, OnItemClickListener {
     /**
      * Loader arg for the position of the selected sort option.
      */
@@ -124,6 +124,7 @@ public class RestaurantsFragment extends SprocketsFragment implements LoaderCall
         mGrid.setAdapter(new RestaurantCursorAdapter(mGrid));
         mGrid.setOnItemClickListener(this);
         mGrid.setMultiChoiceModeListener(new ChoiceListener());
+        mListener.onViewCreated(view);
     }
 
     @Override
@@ -137,7 +138,7 @@ public class RestaurantsFragment extends SprocketsFragment implements LoaderCall
         mLoaderArgs = args;
         EasyCursorLoader loader = null;
         final String[] proj = {_ID, Restaurants.NAME, Restaurants.VICINITY,
-                Restaurants.INTL_PHONE, Restaurants.URL, Restaurants.RATING};
+                Restaurants.INTL_PHONE, Restaurants.URL, Restaurants.COLOR, Restaurants.RATING};
         StringBuilder sel = new StringBuilder(Restaurants.STATUS_ID).append(" = ?");
         String[] selArgs;
         String order = null;
@@ -167,7 +168,7 @@ public class RestaurantsFragment extends SprocketsFragment implements LoaderCall
                         }
                     };
                     break;
-                case 3:
+                case 4:
                     order = Restaurants.RATING + " DESC";
                     break;
             }
@@ -307,6 +308,11 @@ public class RestaurantsFragment extends SprocketsFragment implements LoaderCall
      * Receives notifications for {@link RestaurantsFragment} events.
      */
     interface Listener {
+        /**
+         * The restaurants list has been created.
+         */
+        void onViewCreated(View view);
+
         /**
          * The restaurants options menu is being created. Return true to add the menu items or false
          * to skip them.

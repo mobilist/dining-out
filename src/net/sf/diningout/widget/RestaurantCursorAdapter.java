@@ -69,7 +69,7 @@ public class RestaurantCursorAdapter extends ResourceEasyCursorAdapter {
     @Override
     public void bindView(View view, Context context, EasyCursor c) {
         RestaurantHolder restaurant = ViewHolder.get(view, RestaurantHolder.class);
-        restaurant.photo(RestaurantPhotos.uriForRestaurant(c.getLong(Restaurants._ID)), mCard)
+        restaurant.photo(RestaurantPhotos.uriForRestaurant(c.getLong(Restaurants._ID)), mCard, c)
                 .name(c.getString(Restaurants.NAME));
         if (mHasRating) {
             restaurant.rating(c.getFloat(Restaurants.RATING));

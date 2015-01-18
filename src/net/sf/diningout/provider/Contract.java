@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2014 pushbit <pushbit@gmail.com>
+ * Copyright 2013-2015 pushbit <pushbit@gmail.com>
  * 
  * This file is part of Dining Out.
  * 
@@ -46,11 +46,16 @@ import net.sf.sprockets.google.Places;
 import net.sf.sprockets.google.Places.Field;
 import net.sf.sprockets.google.Places.Params;
 import net.sf.sprockets.google.StreetView;
+import net.sf.sprockets.graphics.Colors;
 import net.sf.sprockets.preference.Prefs;
+import net.sf.sprockets.util.Elements;
 import net.sf.sprockets.util.Geos;
 import net.sf.sprockets.util.StringArrays;
 
+import org.apache.commons.io.filefilter.FileFilterUtils;
+
 import java.io.File;
+import java.io.FilenameFilter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -61,6 +66,7 @@ import static java.io.File.separator;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static net.sf.diningout.data.Review.Type.GOOGLE;
 import static net.sf.diningout.data.Review.Type.PRIVATE;
+import static net.sf.diningout.data.Status.DELETED;
 import static net.sf.diningout.data.Status.INACTIVE;
 import static net.sf.diningout.data.Sync.Type.RESTAURANT;
 import static net.sf.diningout.data.Sync.Type.REVIEW;
@@ -81,6 +87,7 @@ import static net.sf.sprockets.google.Places.Field.PRICE_LEVEL;
 import static net.sf.sprockets.google.Places.Field.REVIEWS;
 import static net.sf.sprockets.google.Places.Field.WEBSITE;
 import static net.sf.sprockets.google.Places.Request.PHOTO;
+import static net.sf.sprockets.io.MoreFiles.DOT_PART;
 
 /**
  * Constants and methods for working with the content provider.
@@ -136,7 +143,7 @@ public class Contract {
      * Common columns that can be referenced without specifying a table. Be careful to ensure that
      * the queried table does actually contain the column.
      */
-    public interface Columns extends StatefulColumns, ServerColumns, SyncColumns {
+    public interface Columns extends StatefulColumns, ServerColumns, SyncColumns, PhotoColumns {
     }
 
     /**
@@ -171,6 +178,16 @@ public class Contract {
          * Incremented by one each time {@link #DIRTY} is set to 1.
          */
         String VERSION = "version";
+    }
+
+    /**
+     * Columns of objects that have a photo.
+     */
+    protected interface PhotoColumns {
+        /**
+         * Most prominent color in the photo. Null if not available.
+         */
+        String COLOR = "color";
     }
 
     /**
@@ -265,6 +282,7 @@ public class Contract {
         String CONTACT__ID = "c._id";
         String CONTACT_GLOBAL_ID = "c.global_id";
         String CONTACT_NAME = "c.name";
+        String CONTACT_COLOR = "c.color";
         String CONTACT_STATUS_ID = "c.status_id";
         String CONTACT_DIRTY = "c.dirty";
         String CONTACT_VERSION = "c.version";
@@ -274,7 +292,7 @@ public class Contract {
      * Constants and methods for working with contacts.
      */
     public static class Contacts implements ContactsColumns, BaseColumns, StatefulColumns,
-            ServerColumns, SyncColumns {
+            ServerColumns, SyncColumns, PhotoColumns {
         /**
          * URI for the contacts table.
          */
@@ -452,6 +470,7 @@ public class Contract {
         String RESTAURANT_GLOBAL_ID = "r.global_id";
         String RESTAURANT_NAME = "r.name";
         String RESTAURANT_RATING = "r.rating";
+        String RESTAURANT_COLOR = "r.color";
         String RESTAURANT_STATUS_ID = "r.status_id";
         String RESTAURANT_DIRTY = "r.dirty";
         String RESTAURANT_VERSION = "r.version";
@@ -461,7 +480,7 @@ public class Contract {
      * Constants and methods for working with restaurants.
      */
     public static class Restaurants implements RestaurantsColumns, BaseColumns, StatefulColumns,
-            ServerColumns, SyncColumns {
+            ServerColumns, SyncColumns, PhotoColumns {
         /**
          * URI for the restaurants table.
          */
@@ -485,6 +504,56 @@ public class Contract {
         public static final String SEARCH_TYPES = res().getString(R.string.search_types);
 
         private Restaurants() {
+        }
+
+        /**
+         * Add a placeholder for a restaurant with the global ID.
+         *
+         * @return id of the new restaurant or -1 if an error occurred
+         */
+        public static long add(long globalId) {
+            ContentValues vals = new ContentValues(4);
+            vals.put(GLOBAL_ID, globalId);
+            vals.put(NAME, "");
+            vals.put(NORMALISED_NAME, "");
+            vals.put(COLOR, defaultColor());
+            vals.put(DIRTY, 0);
+            return ContentUris.parseId(cr().insert(CONTENT_URI, vals));
+        }
+
+        /**
+         * Delete any other restaurant that has the global ID and move its reviews to the
+         * restaurant.
+         *
+         * @return true if another restaurant was deleted
+         */
+        public static boolean deleteConflict(long id, long globalId) {
+            String[] proj = {_ID};
+            String sel = GLOBAL_ID + " = ? AND " + _ID + " <> ?";
+            String[] args = StringArrays.from(globalId, id);
+            long otherId = Cursors.firstLong(cr().query(CONTENT_URI, proj, sel, args, null));
+            if (otherId > 0) {
+                /* delete other restaurant */
+                ContentValues vals = new ContentValues(2);
+                vals.putNull(GLOBAL_ID);
+                vals.put(STATUS_ID, DELETED.id);
+                cr().update(CONTENT_URI, vals, sel, args);
+                /* move its reviews */
+                vals.clear();
+                vals.put(Reviews.RESTAURANT_ID, id);
+                sel = Reviews.GLOBAL_ID + " IS NOT NULL AND " + Reviews.RESTAURANT_ID + " = ?";
+                args = new String[]{String.valueOf(otherId)};
+                cr().update(Reviews.CONTENT_URI, vals, sel, args);
+                return true;
+            }
+            return false;
+        }
+
+        /**
+         * Get a color to use when adding a restaurant.
+         */
+        public static int defaultColor() {
+            return Colors.dark();
         }
 
         private static final Field[] sSearchFields = {GEOMETRY, Field.NAME, Field.RATING, PHOTOS};
@@ -511,7 +580,7 @@ public class Contract {
          * Get values from the place.
          */
         public static ContentValues values(Place place) {
-            return values(new ContentValues(15), place);
+            return values(new ContentValues(16), place); // extra space in vals in case color added
         }
 
         /**
@@ -559,7 +628,7 @@ public class Contract {
             int count = c.getCount();
             String address = Cursors.firstString(c);
             /* prepare for insert/update */
-            ContentValues vals = new ContentValues(16);
+            ContentValues vals = new ContentValues(17); // one extra space in case color added
             vals.put(GLOBAL_ID, restaurant.globalId);
             vals.put(GOOGLE_ID, restaurant.googleId);
             vals.put(GOOGLE_REFERENCE, restaurant.googleReference);
@@ -833,14 +902,17 @@ public class Contract {
                     return new File(file, RESTAURANT_IMAGES + restaurantId + separator + id);
                 } else {
                     file = new File(file, RESTAURANT_IMAGES + restaurantId);
-                    File[] files = file.listFiles();
-                    if (files != null && files.length > 0) {
-                        return files[0];
-                    }
+                    return Elements.get(file.listFiles(PART_FILTER), 0);
                 }
             }
             return null;
         }
+
+        /**
+         * Filters out partially downloaded files.
+         */
+        private static final FilenameFilter PART_FILTER =
+                FileFilterUtils.notFileFilter(FileFilterUtils.suffixFileFilter(DOT_PART));
     }
 
     /**

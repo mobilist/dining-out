@@ -43,6 +43,7 @@ import com.squareup.picasso.Picasso;
 
 import net.sf.diningout.R;
 import net.sf.diningout.data.Sync.Type;
+import net.sf.diningout.provider.Contract.Columns;
 import net.sf.diningout.provider.Contract.Contacts;
 import net.sf.diningout.provider.Contract.RestaurantPhotos;
 import net.sf.diningout.provider.Contract.Syncs;
@@ -66,8 +67,8 @@ import static android.text.format.DateUtils.MINUTE_IN_MILLIS;
 import static net.sf.diningout.data.Status.ACTIVE;
 import static net.sf.diningout.data.Sync.Type.REVIEW;
 import static net.sf.diningout.data.Sync.Type.USER;
-import static net.sf.diningout.picasso.OverlayTransformation.DOWN;
 import static net.sf.diningout.picasso.Placeholders.get;
+import static net.sf.diningout.picasso.Transformations.DOWN;
 import static net.sf.sprockets.database.sqlite.SQLite.alias_;
 import static net.sf.sprockets.database.sqlite.SQLite.aliased_;
 
@@ -109,8 +110,9 @@ public class NotificationsFragment extends SprocketsFragment implements LoaderCa
         String[] proj = {SyncsJoinAll.SYNC__ID, alias_(SyncsJoinAll.SYNC_TYPE_ID),
                 SQLite.millis(Syncs.ACTION_ON), alias_(SyncsJoinAll.RESTAURANT__ID),
                 alias_(SyncsJoinAll.RESTAURANT_NAME), alias_(SyncsJoinAll.CONTACT__ID),
-                Contacts.ANDROID_LOOKUP_KEY, Contacts.ANDROID_ID,
-                alias_(SyncsJoinAll.CONTACT_NAME)};
+                Contacts.ANDROID_LOOKUP_KEY, Contacts.ANDROID_ID, alias_(SyncsJoinAll.CONTACT_NAME),
+                "coalesce(" + SyncsJoinAll.RESTAURANT_COLOR + "," + SyncsJoinAll.CONTACT_COLOR
+                        + ") AS " + Columns.COLOR};
         String sel = SyncsJoinAll.SYNC_TYPE_ID + " = ? AND " + SyncsJoinAll.REVIEW_STATUS_ID
                 + " = ? AND " + SyncsJoinAll.RESTAURANT_STATUS_ID + " = ? OR "
                 + SyncsJoinAll.SYNC_TYPE_ID + " = ? AND " + SyncsJoinAll.CONTACT_STATUS_ID + " = ?";
@@ -220,7 +222,7 @@ public class NotificationsFragment extends SprocketsFragment implements LoaderCa
                     break;
             }
             Picasso.with(context).load(photo).resize(mCard.getWidth(), mCard.getHeight())
-                    .centerCrop().transform(DOWN).placeholder(get()).into(notif.mPhoto);
+                    .centerCrop().transform(DOWN).placeholder(get(c)).into(notif.mPhoto);
             notif.mAction.setText(action);
             long now = System.currentTimeMillis();
             long when = c.getLong(Syncs.ACTION_ON);

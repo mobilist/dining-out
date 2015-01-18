@@ -59,6 +59,11 @@
         <item name="android:textAllCaps">true</item>
     </style>
 
+    <style name="Attributions">
+        <item name="android:textSize">@dimen/attributions</item>
+        <item name="android:textColor">@color/attributions</item>
+    </style>
+
     <style name="Showcase" parent="ShowcaseView.Light">
         <item name="sv_backgroundColor">@color/sv_background</item>
         <item name="sv_titleTextAppearance">@style/TextAppearance.Showcase.Title</item>

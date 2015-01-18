@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2014 pushbit <pushbit@gmail.com>
+ * Copyright 2013-2015 pushbit <pushbit@gmail.com>
  * 
  * This file is part of Dining Out.
  * 
@@ -50,6 +50,7 @@ import com.squareup.picasso.Picasso;
 
 import net.sf.diningout.R;
 import net.sf.diningout.accounts.Accounts;
+import net.sf.diningout.app.FriendColorService;
 import net.sf.diningout.app.Notifications;
 import net.sf.diningout.app.RestaurantService;
 import net.sf.diningout.app.ReviewsService;
@@ -97,7 +98,6 @@ import static android.text.format.DateUtils.DAY_IN_MILLIS;
 import static com.google.common.base.Charsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static net.sf.diningout.app.Notifications.ID_SYNC;
-import static net.sf.diningout.app.ui.RestaurantActivity.EXTRA_ID;
 import static net.sf.diningout.data.Review.Type.PRIVATE;
 import static net.sf.diningout.data.Status.ACTIVE;
 import static net.sf.diningout.data.Status.DELETED;
@@ -178,7 +178,7 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter {
                 initUser(context, provider);
             }
             if (extras.getBoolean(SYNC_EXTRAS_CONTACTS_ONLY)) {
-                syncContacts(provider);
+                syncContacts(context, provider);
                 uploadContacts(context, provider);
                 return;
             }
@@ -190,7 +190,7 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter {
                     || now - prefs.getLong(LAST_SYNC, 0L) >= DAY_IN_MILLIS) {
                 extras.putBoolean(SYNC_EXTRAS_UPLOAD, true);
                 extras.putBoolean(SYNC_EXTRAS_DOWNLOAD, true);
-                syncContacts(provider);
+                syncContacts(context, provider);
             }
             if (extras.containsKey(SYNC_EXTRAS_UPLOAD)
                     || extras.containsKey(SYNC_EXTRAS_DOWNLOAD)) {
@@ -238,7 +238,7 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter {
             if (init.restaurants != null) {
                 Prefs.putBoolean(context, ONBOARDED, true);
                 for (Restaurant restaurant : init.restaurants) {
-                    restaurant.localId = RestaurantService.add(restaurant.globalId);
+                    restaurant.localId = Restaurants.add(restaurant.globalId);
                     if (restaurant.localId > 0) {
                         RestaurantService.download(restaurant.localId);
                     }
@@ -251,7 +251,7 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter {
      * Insert new system contacts, delete orphaned app contacts, and synchronise any changes to
      * existing.
      */
-    private void syncContacts(ContentProviderClient cp) throws RemoteException {
+    private void syncContacts(Context context, ContentProviderClient cp) throws RemoteException {
         /* get system contacts */
         String[] proj = {Email.ADDRESS, ContactsContract.Contacts.LOOKUP_KEY,
                 RawContacts.CONTACT_ID, ContactsContract.Contacts.DISPLAY_NAME};
@@ -266,8 +266,8 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter {
         EasyCursor app = new EasyCursor(cp.query(CONTACTS_URI, proj, sel, null, Contacts.EMAIL));
         /* compare and sync */
         ContentValues vals = new ContentValues(5);
-        for (Result result : new CursorJoiner(sys, new String[]{Email.ADDRESS}, app,
-                new String[]{Contacts.EMAIL})) {
+        for (Result result : new CursorJoiner(sys, new String[]{Email.ADDRESS},
+                app, new String[]{Contacts.EMAIL})) {
             switch (result) {
                 case LEFT: // new system contact, insert into app contacts
                     String email = sys.getString(Email.ADDRESS);
@@ -282,9 +282,13 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter {
                     vals.put(Contacts.EMAIL, email);
                     if (id <= 0) {
                         vals.put(Contacts.EMAIL_HASH, hash);
-                        cp.insert(CONTACTS_URI, vals);
+                        id = ContentUris.parseId(cp.insert(CONTACTS_URI, vals));
                     } else {
                         cp.update(ContentUris.withAppendedId(CONTACTS_URI, id), vals, null, null);
+                    }
+                    if (id > 0) {
+                        context.startService(new Intent(context, FriendColorService.class)
+                                .putExtra(FriendColorService.EXTRA_ID, id));
                     }
                     break;
                 case RIGHT: // orphaned app contact, delete unless user is following
@@ -314,6 +318,8 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter {
                     }
                     if (vals.size() > 0) {
                         cp.update(Uris.appendId(CONTACTS_URI, app), vals, null, null);
+                        context.startService(new Intent(context, FriendColorService.class)
+                                .putExtra(FriendColorService.EXTRA_ID, app.getLong(_ID)));
                     }
                     break;
             }
@@ -407,19 +413,16 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter {
         String sel = Columns.VERSION + " = ?";
         String[] args = new String[1];
         for (Synced synced : synceds) {
-            if (!uri.equals(REVIEW_DRAFTS_URI)) {
-                vals.put(Columns.GLOBAL_ID, synced.globalId > 0 ? synced.globalId : null);
+            if (synced.globalId > 0 && uri != REVIEW_DRAFTS_URI) {
+                vals.put(Columns.GLOBAL_ID, synced.globalId);
+                if (uri == RESTAURANTS_URI) {
+                    Restaurants.deleteConflict(synced.localId, synced.globalId);
+                }
             }
             vals.put(Columns.DIRTY, synced.dirty);
             args[0] = String.valueOf(synced.version);
-            try {
-                cp.update(ContentUris.withAppendedId(uri, synced.localId), vals, sel, args);
-            } catch (RemoteException e) { // probably global_id conflict, just mark not dirty
-                Log.e(TAG, "updating synchronised object, trying again without global_id", e);
-                exception(e);
-                vals.remove(Columns.GLOBAL_ID);
-                cp.update(ContentUris.withAppendedId(uri, synced.localId), vals, sel, args);
-            }
+            cp.update(ContentUris.withAppendedId(uri, synced.localId), vals, sel, args);
+            vals.clear();
         }
     }
 
@@ -493,6 +496,7 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter {
         switch (sync.action) {
             case INSERT:
                 ContentValues vals = Restaurants.values(restaurant);
+                vals.put(Restaurants.COLOR, Restaurants.defaultColor());
                 restaurant.localId = ContentUris.parseId(cp.insert(RESTAURANTS_URI, vals));
                 if (restaurant.localId > 0 && restaurant.status == ACTIVE) {
                     RestaurantService.download(restaurant.localId);
@@ -651,7 +655,7 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter {
                     activity = new Intent(context, FriendsActivity.class);
                 } else if (users == 0 && reviews == 1) {
                     activity = new Intent(context, RestaurantActivity.class)
-                            .putExtra(EXTRA_ID, restaurantId);
+                            .putExtra(RestaurantActivity.EXTRA_ID, restaurantId);
                 } else {
                     activity = new Intent(context, NotificationsActivity.class);
                 }

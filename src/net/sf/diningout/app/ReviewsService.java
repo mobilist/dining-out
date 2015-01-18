@@ -76,7 +76,7 @@ public class ReviewsService extends IntentService {
         long restaurantId = Restaurants.idForGlobalId(review.restaurantId);
         boolean restaurantExists = restaurantId > 0;
         if (!restaurantExists) { // add placeholder
-            restaurantId = RestaurantService.add(review.restaurantId);
+            restaurantId = Restaurants.add(review.restaurantId);
         }
         if (restaurantId > 0) { // add review
             review.localId = ContentUris.parseId(

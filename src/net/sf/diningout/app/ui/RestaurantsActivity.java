@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2014 pushbit <pushbit@gmail.com>
+ * Copyright 2013-2015 pushbit <pushbit@gmail.com>
  * 
  * This file is part of Dining Out.
  * 
@@ -19,31 +19,53 @@ package net.sf.diningout.app.ui;
 
 import android.app.ActionBar;
 import android.app.ActionBar.OnNavigationListener;
-import android.app.ActivityOptions;
+import android.app.LoaderManager.LoaderCallbacks;
 import android.content.Intent;
+import android.content.Loader;
+import android.location.Location;
 import android.os.Bundle;
 import android.support.v4.widget.DrawerLayout;
 import android.view.View;
 import android.widget.ArrayAdapter;
 
+import com.google.android.gms.maps.GoogleMap;
+import com.google.android.gms.maps.GoogleMap.OnInfoWindowClickListener;
+import com.google.android.gms.maps.MapFragment;
+import com.google.android.gms.maps.OnMapReadyCallback;
+import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.Marker;
+import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.common.collect.ImmutableSet;
 
 import net.sf.diningout.R;
 import net.sf.diningout.app.ui.RestaurantsFragment.Listener;
+import net.sf.diningout.provider.Contract.Restaurants;
+import net.sf.diningout.undobar.Undoer;
 import net.sf.diningout.widget.RestaurantHolder;
+import net.sf.sprockets.app.Fragments;
+import net.sf.sprockets.app.MoreActivityOptions;
+import net.sf.sprockets.content.EasyCursorLoader;
+import net.sf.sprockets.content.LocalCursorLoader;
+import net.sf.sprockets.database.EasyCursor;
+import net.sf.sprockets.gms.maps.GoogleMaps;
 import net.sf.sprockets.view.ActionModePresenter;
 import net.sf.sprockets.view.ViewHolder;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 
 import butterknife.InjectView;
 import icepick.Icicle;
 
 import static android.app.ActionBar.NAVIGATION_MODE_LIST;
+import static android.provider.BaseColumns._ID;
 import static android.support.v4.widget.DrawerLayout.LOCK_MODE_LOCKED_CLOSED;
 import static android.support.v4.widget.DrawerLayout.LOCK_MODE_UNLOCKED;
 import static android.view.Gravity.START;
 import static net.sf.diningout.app.ui.RestaurantActivity.EXTRA_ID;
+import static net.sf.diningout.data.Status.ACTIVE;
+import static net.sf.diningout.data.Status.DELETED;
 import static net.sf.sprockets.app.SprocketsApplication.res;
 import static net.sf.sprockets.gms.analytics.Trackers.event;
 
@@ -51,7 +73,17 @@ import static net.sf.sprockets.gms.analytics.Trackers.event;
  * Displays a list of the user's restaurants.
  */
 public class RestaurantsActivity extends BaseNavigationDrawerActivity
-        implements OnNavigationListener, Listener {
+        implements OnNavigationListener, OnMapReadyCallback, LoaderCallbacks<EasyCursor>, Listener {
+    /**
+     * ID of a restaurant to delete.
+     */
+    static final String EXTRA_DELETE_ID = "intent.extra.DELETE_ID";
+    /**
+     * Tag for the map fragment.
+     */
+    private static final String MAP = "map";
+    private static final int MAP_NAVIGATION_ITEM_POSITION = 3;
+
     @InjectView(R.id.root)
     DrawerLayout mDrawerLayout;
     /**
@@ -59,6 +91,15 @@ public class RestaurantsActivity extends BaseNavigationDrawerActivity
      */
     @Icicle
     int mSort;
+    private GoogleMap mMap;
+    /**
+     * Maps to restaurant ID.
+     */
+    private Map<Marker, Long> mMarkers;
+    /**
+     * True if the next map load should move the camera to the user's location.
+     */
+    private boolean mMoveToMyLocation;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -73,19 +114,132 @@ public class RestaurantsActivity extends BaseNavigationDrawerActivity
         ab.setSelectedNavigationItem(mSort); // restore when rotating with navigation drawer open
         setContentView(R.layout.restaurants_activity);
         setDrawerLayout(mDrawerLayout);
+        /* set up the map if it was previously showing */
+        MapFragment map = map();
+        if (map != null) {
+            map.getMapAsync(this);
+        }
+        getLoaderManager().initLoader(0, null, this); // need already to support config changes
     }
 
     private static final String[] sSortEventLabels = {"by name", "by last visit", "by distance",
-            "by rating"};
+            "on a map", "by rating"};
 
     @Override
-    public boolean onNavigationItemSelected(int itemPosition, long itemId) {
-        if (mSort != itemPosition) { // reload if option changed
-            mSort = itemPosition;
-            restaurants().sort(itemPosition);
-            event("restaurants", "sort", sSortEventLabels[itemPosition]);
+    public boolean onNavigationItemSelected(int pos, long id) {
+        if (mSort != pos) { // option changed
+            mSort = pos;
+            if (pos != MAP_NAVIGATION_ITEM_POSITION) { // remove map if showing and sort by option
+                MapFragment map = map();
+                RestaurantsFragment restaurants = restaurants();
+                if (map != null) {
+                    Fragments.close(this).remove(map).commit();
+                    mMap = null;
+                    if (mMarkers != null) {
+                        mMarkers.clear();
+                    }
+                    getLoaderManager().destroyLoader(0);
+                    Fragments.open(this).show(restaurants).commit();
+                }
+                restaurants.sort(pos);
+            } else {
+                Fragments.close(this).hide(restaurants()).commit();
+                MapFragment map = MapFragment.newInstance();
+                Fragments.open(this).add(R.id.map, map, MAP).commit();
+                mMoveToMyLocation = true;
+                map.getMapAsync(this);
+            }
+            event("restaurants", "sort", sSortEventLabels[pos]);
         }
         return true;
+    }
+
+    @Override
+    public void onMapReady(GoogleMap map) {
+        mMap = map;
+        map.setMyLocationEnabled(true);
+        if (mMoveToMyLocation) {
+            GoogleMaps.moveCameraToMyLocation(this, map);
+        }
+        getLoaderManager().restartLoader(0, null, this);
+        map.setOnInfoWindowClickListener(new OnInfoWindowClickListener() {
+            @Override
+            public void onInfoWindowClick(Marker marker) {
+                Long id = mMarkers.get(marker);
+                if (id != null) {
+                    onRestaurantClick(null, id);
+                }
+            }
+        });
+    }
+
+    @Override
+    public Loader<EasyCursor> onCreateLoader(int id, Bundle args) {
+        if (mMap != null) {
+            final String[] proj = {_ID, Restaurants.NAME, Restaurants.LATITUDE,
+                    Restaurants.LONGITUDE, Restaurants.RATING, null};
+            String sel = Restaurants.DISTANCE + " IS NOT NULL AND "
+                    + Restaurants.STATUS_ID + " = ?";
+            String[] selArgs = {String.valueOf(ACTIVE.id)};
+            return new LocalCursorLoader(this, Restaurants.CONTENT_URI, proj, sel, selArgs, null) {
+                @Override
+                protected void onLocation(Location location) {
+                    proj[proj.length - 1] = Restaurants.distance(location);
+                }
+            };
+        } else { // ignore dummy init in onCreate
+            return new EasyCursorLoader(this, Restaurants.CONTENT_URI, null, "0 = 1", null, null);
+        }
+    }
+
+    @Override
+    public void onLoadFinished(Loader<EasyCursor> loader, EasyCursor c) {
+        if (mMap == null) {
+            return;
+        }
+        /* (re-)add restaurant markers */
+        mMap.clear();
+        if (mMarkers != null) {
+            mMarkers.clear();
+        }
+        MarkerOptions options = null;
+        double nearestDistance = Double.MAX_VALUE; // first marker will be closer
+        LatLng nearestPosition = null;
+        while (c.moveToNext()) {
+            if (options == null) {
+                options = new MarkerOptions();
+            }
+            LatLng position = new LatLng(
+                    c.getDouble(Restaurants.LATITUDE), c.getDouble(Restaurants.LONGITUDE));
+            float rating = c.getFloat(Restaurants.RATING);
+            double distance = Math.sqrt(c.getDouble(Restaurants.DISTANCE));
+            String snippet = rating > 0.0f ? getString(R.string.rating_distance, rating, distance)
+                    : getString(R.string.distance_km, distance);
+            Marker marker = mMap.addMarker(options.position(position)
+                    .title(c.getString(Restaurants.NAME)).snippet(snippet));
+            if (mMarkers == null) {
+                mMarkers = new HashMap<>(c.getCount());
+            }
+            mMarkers.put(marker, c.getLong(_ID));
+            if (distance < nearestDistance) {
+                nearestDistance = distance;
+                nearestPosition = position;
+            }
+        }
+        /* move the camera to include at least one marker, if necessary */
+        if (mMoveToMyLocation) {
+            if (nearestPosition != null) {
+                GoogleMaps.animateCameraToIncludePosition(this, mMap, nearestPosition, 1000L);
+            }
+            mMoveToMyLocation = false;
+        }
+    }
+
+    @Override
+    public void onViewCreated(View view) {
+        if (mSort == MAP_NAVIGATION_ITEM_POSITION) { // avoid restaurants flash before map is shown
+            getFragmentManager().beginTransaction().hide(restaurants()).commit();
+        }
     }
 
     @Override
@@ -95,17 +249,29 @@ public class RestaurantsActivity extends BaseNavigationDrawerActivity
 
     @Override
     public void onRestaurantsSearch(String query) {
-        mDrawerLayout.setDrawerLockMode(query.length() > 0 ? LOCK_MODE_LOCKED_CLOSED
-                : LOCK_MODE_UNLOCKED, START);
+        mDrawerLayout.setDrawerLockMode(
+                query.length() > 0 ? LOCK_MODE_LOCKED_CLOSED : LOCK_MODE_UNLOCKED, START);
     }
 
     @Override
     public void onRestaurantClick(View view, long id) {
-        RestaurantActivity.sPlaceholder =
-                ((RestaurantHolder) ViewHolder.get(view)).photo.getDrawable();
-        startActivity(new Intent(this, RestaurantActivity.class).putExtra(EXTRA_ID, id),
-                ActivityOptions.makeScaleUpAnimation(view, 0, 0, view.getWidth(), view.getHeight())
-                        .toBundle());
+        Bundle options = null;
+        if (view != null) {
+            RestaurantActivity.sPlaceholder =
+                    ((RestaurantHolder) ViewHolder.get(view)).photo.getDrawable();
+            options = MoreActivityOptions.makeScaleUpAnimation(view).toBundle();
+        }
+        startActivity(new Intent(this, RestaurantActivity.class).putExtra(EXTRA_ID, id), options);
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        long id = intent.getLongExtra(EXTRA_DELETE_ID, 0L);
+        if (id > 0) {
+            new Undoer(this, getString(R.string.n_deleted, 1),
+                    Restaurants.CONTENT_URI, new long[]{id}, DELETED, ACTIVE);
+        }
     }
 
     @Override
@@ -115,5 +281,13 @@ public class RestaurantsActivity extends BaseNavigationDrawerActivity
 
     private RestaurantsFragment restaurants() {
         return (RestaurantsFragment) getFragmentManager().findFragmentById(R.id.restaurants);
+    }
+
+    private MapFragment map() {
+        return (MapFragment) getFragmentManager().findFragmentByTag(MAP);
+    }
+
+    @Override
+    public void onLoaderReset(Loader<EasyCursor> loader) {
     }
 }

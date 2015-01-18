@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2014 pushbit <pushbit@gmail.com>
+ * Copyright 2013-2015 pushbit <pushbit@gmail.com>
  * 
  * This file is part of Dining Out.
  * 
@@ -63,8 +63,9 @@ public class InitService extends IntentService {
             int size = restaurants.size();
             restaurantIds = new long[size];
             for (int i = 0; i < size; i++) {
-                restaurantIds[i] = ContentUris.parseId(
-                        cr.insert(Restaurants.CONTENT_URI, restaurants.get(i)));
+                ContentValues vals = restaurants.get(i);
+                vals.put(Restaurants.COLOR, Restaurants.defaultColor());
+                restaurantIds[i] = ContentUris.parseId(cr.insert(Restaurants.CONTENT_URI, vals));
             }
         }
         if (contactIds != null) { // follow the contacts

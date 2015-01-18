@@ -277,9 +277,8 @@ public class ReviewsFragment extends TabListFragment implements LoaderCallbacks<
                         text.append("\n\n");
                     }
                     EasyCursor c = (EasyCursor) list.getItemAtPosition(i);
-                    text.append(ReviewAdapter.name(a, c)).append(" (")
-                            .append(ReviewAdapter.time(a, c)).append(") ★")
-                            .append(c.getString(Reviews.RATING));
+                    text.append(getString(R.string.review_metadata, ReviewAdapter.name(a, c),
+                            ReviewAdapter.time(a, c), c.getInt(Reviews.RATING)));
                     CharSequence comments = ReviewAdapter.comments(c);
                     if (comments.length() > 0) {
                         text.append("\n").append(comments);

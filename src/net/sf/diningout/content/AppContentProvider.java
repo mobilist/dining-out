@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2014 pushbit <pushbit@gmail.com>
+ * Copyright 2013-2015 pushbit <pushbit@gmail.com>
  * 
  * This file is part of Dining Out.
  * 
@@ -111,7 +111,7 @@ public class AppContentProvider extends DbContentProvider {
 
     @Override
     protected SQLiteOpenHelper getOpenHelper() {
-        mHelper = new DbOpenHelper(getContext(), "dining-out-v100.db", 1);
+        mHelper = new DbOpenHelper(getContext(), "dining-out-v100.db", 2);
         return mHelper;
     }
 
@@ -173,8 +173,8 @@ public class AppContentProvider extends DbContentProvider {
             Log.e(TAG, method, e);
             exception(e);
         }
-        cr().notifyChange(ContentUris.withAppendedId(Restaurants.CONTENT_URI,
-                Long.parseLong(arg)), null, false);
+        cr().notifyChange(ContentUris.withAppendedId(Restaurants.CONTENT_URI, Long.parseLong(arg)),
+                null, false);
         return null;
     }
 
@@ -182,8 +182,8 @@ public class AppContentProvider extends DbContentProvider {
     public ParcelFileDescriptor openFile(Uri uri, String mode) throws FileNotFoundException {
         switch (sMatcher.match(uri)) {
             case RESTAURANT_PHOTOS:
-                File file = RestaurantPhotos.file(Long.parseLong(uri.getQueryParameter(
-                        RestaurantPhotos.RESTAURANT_ID)));
+                File file = RestaurantPhotos.file(
+                        Long.parseLong(uri.getQueryParameter(RestaurantPhotos.RESTAURANT_ID)));
                 if (file != null) {
                     return ParcelFileDescriptor.open(file, MODE_READ_ONLY);
                 }

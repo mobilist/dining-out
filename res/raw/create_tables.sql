@@ -13,6 +13,7 @@ CREATE TABLE contact (
     email TEXT,
     email_hash TEXT NOT NULL UNIQUE, -- SHA-512 + base 64
     following INTEGER NOT NULL DEFAULT 0,
+    color INTEGER, -- most prominent in photo
     status_id INTEGER NOT NULL DEFAULT 1,
     dirty INTEGER NOT NULL DEFAULT 1,
     version INTEGER NOT NULL DEFAULT 0,
@@ -49,6 +50,7 @@ CREATE TABLE restaurant (
     url TEXT,
     price INTEGER, -- 1-4
     rating REAL, -- 1.0-5.0, average of all reviews
+    color INTEGER, -- most prominent in photo
     notes TEXT COLLATE LOCALIZED,
     last_visit_on TEXT, -- cached from visit
     status_id INTEGER NOT NULL DEFAULT 1,

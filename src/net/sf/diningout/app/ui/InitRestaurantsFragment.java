@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2014 pushbit <pushbit@gmail.com>
+ * Copyright 2013-2015 pushbit <pushbit@gmail.com>
  * 
  * This file is part of Dining Out.
  * 
@@ -29,13 +29,13 @@ import android.widget.AbsListView;
 import android.widget.AbsListView.OnScrollListener;
 import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemClickListener;
-import android.widget.GridView;
 
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
 import net.sf.diningout.R;
 import net.sf.diningout.provider.Contract.Restaurants;
+import net.sf.diningout.widget.PoweredByGoogle;
 import net.sf.diningout.widget.RestaurantPlacesAdapter;
 import net.sf.sprockets.app.ui.SprocketsFragment;
 import net.sf.sprockets.content.GooglePlacesLoader;
@@ -52,6 +52,7 @@ import java.util.Collections;
 import java.util.List;
 
 import butterknife.InjectView;
+import in.srain.cube.views.GridViewWithHeaderAndFooter;
 
 import static android.view.View.GONE;
 import static android.view.View.VISIBLE;
@@ -71,7 +72,9 @@ public class InitRestaurantsFragment extends SprocketsFragment
     @InjectView(R.id.progress)
     View mProgress;
     @InjectView(R.id.list)
-    GridView mGrid;
+    GridViewWithHeaderAndFooter mGrid;
+    private GooglePlacesAdapter mAdapter;
+    private PoweredByGoogle mPowered;
     private Listener mListener;
     /**
      * Three lists of restaurants that are loaded on demand.
@@ -102,7 +105,10 @@ public class InitRestaurantsFragment extends SprocketsFragment
     @Override
     public void onViewCreated(View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        mGrid.setAdapter(new RestaurantPlacesAdapter(mGrid));
+        mPowered = new PoweredByGoogle(a);
+        mGrid.addFooterView(mPowered, null, false);
+        mAdapter = new RestaurantPlacesAdapter(mGrid);
+        mGrid.setAdapter(mAdapter);
         mGrid.setOnItemClickListener(this);
         mGrid.setOnScrollListener(this);
     }
@@ -139,10 +145,10 @@ public class InitRestaurantsFragment extends SprocketsFragment
         if (resp != null && resp.getStatus() == OK) {
             int id = loader.getId();
             mPlaces.set(id, resp.getResult());
-            /* join the batches for the full list */
-            Iterable<Place> places = Iterables.concat(Iterables.filter(mPlaces, notNull()));
-            ((GooglePlacesAdapter) mGrid.getAdapter()).swapPlaces(Lists.newArrayList(places));
+            mAdapter.swapPlaces(
+                    Lists.newArrayList(Iterables.concat(Iterables.filter(mPlaces, notNull()))));
             mListener.onRestaurantClick(mGrid.getCheckedItemCount());
+            mPowered.setHtmlAttributions(resp.getHtmlAttributions());
             if (id < mTokens.length) { // save any token for future batch load
                 mTokens[id] = resp.getNextPageToken();
             }
@@ -175,7 +181,7 @@ public class InitRestaurantsFragment extends SprocketsFragment
 
     @Override
     public void onScroll(AbsListView view, int first, int visible, int total) {
-        if (total - first - visible <= 6) { // load more when only 6 left
+        if (total - first - visible <= 8) { // load more when only 8 left
             if (!TextUtils.isEmpty(mTokens[0]) && mPlaces.get(1) == null) {
                 getLoaderManager().restartLoader(1, null, this);
                 event("restaurants", "init scroll", "page 2");
@@ -195,9 +201,8 @@ public class InitRestaurantsFragment extends SprocketsFragment
         if (mGrid.getCheckedItemCount() > 0) {
             int[] keys = SparseArrays.trueKeys(mGrid.getCheckedItemPositions());
             Place[] places = new Place[keys.length];
-            GooglePlacesAdapter adapter = (GooglePlacesAdapter) mGrid.getAdapter();
             for (int i = 0; i < keys.length; i++) {
-                places[i] = adapter.getItem(keys[i]);
+                places[i] = mAdapter.getItem(keys[i]);
             }
             return places;
         }
@@ -206,9 +211,8 @@ public class InitRestaurantsFragment extends SprocketsFragment
 
     @Override
     public void onLoaderReset(Loader<Response<List<Place>>> loader) {
-        if (mGrid != null) {
-            ((GooglePlacesAdapter) mGrid.getAdapter()).swapPlaces(null);
-        }
+        mAdapter.swapPlaces(null);
+        mPowered.setHtmlAttributions(null);
         int id = loader.getId();
         mPlaces.set(id, null);
         if (id < mTokens.length) {
@@ -219,6 +223,8 @@ public class InitRestaurantsFragment extends SprocketsFragment
     @Override
     public void onDestroy() {
         super.onDestroy();
+        mAdapter = null;
+        mPowered = null;
         mPlaces.clear();
         Arrays.fill(mTokens, null);
     }

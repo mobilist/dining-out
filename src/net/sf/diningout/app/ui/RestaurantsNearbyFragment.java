@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 pushbit <pushbit@gmail.com>
+ * Copyright 2014-2015 pushbit <pushbit@gmail.com>
  * 
  * This file is part of Dining Out.
  * 
@@ -29,13 +29,13 @@ import android.view.ViewGroup;
 import android.view.ViewStub;
 import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemClickListener;
-import android.widget.GridView;
 import android.widget.TextView;
 
 import com.google.common.base.Predicate;
 
 import net.sf.diningout.R;
 import net.sf.diningout.provider.Contract.Restaurants;
+import net.sf.diningout.widget.PoweredByGoogle;
 import net.sf.diningout.widget.RestaurantPlacesAdapter;
 import net.sf.sprockets.app.ui.SprocketsFragment;
 import net.sf.sprockets.content.GooglePlacesLoader;
@@ -45,13 +45,13 @@ import net.sf.sprockets.google.Places.Params;
 import net.sf.sprockets.google.Places.Response;
 import net.sf.sprockets.google.Places.Response.Status;
 import net.sf.sprockets.view.Views;
-import net.sf.sprockets.widget.GooglePlacesAdapter;
 
 import java.util.List;
 
 import butterknife.InjectView;
 import butterknife.Optional;
 import icepick.Icicle;
+import in.srain.cube.views.GridViewWithHeaderAndFooter;
 
 import static android.view.View.GONE;
 import static android.view.View.VISIBLE;
@@ -76,12 +76,13 @@ public class RestaurantsNearbyFragment extends SprocketsFragment
     @InjectView(R.id.empty)
     ViewStub mEmptyStub;
     @InjectView(R.id.list)
-    GridView mGrid;
+    GridViewWithHeaderAndFooter mGrid;
     @Icicle
     String mSearch;
-    private Listener mListener;
-    private Predicate<Place> mFilter;
     private TextView mEmpty;
+    private RestaurantPlacesAdapter mAdapter;
+    private Predicate<Place> mFilter;
+    private Listener mListener;
 
     @Override
     public void onAttach(Activity activity) {
@@ -108,7 +109,9 @@ public class RestaurantsNearbyFragment extends SprocketsFragment
             int sibling = res().getDimensionPixelOffset(R.dimen.cards_sibling_margin);
             mGrid.setPadding(parent, sibling, parent, sibling);
         }
-        mGrid.setAdapter(new RestaurantPlacesAdapter(mGrid));
+        mGrid.addFooterView(new PoweredByGoogle(a));
+        mAdapter = new RestaurantPlacesAdapter(mGrid);
+        mGrid.setAdapter(mAdapter);
         mGrid.setOnItemClickListener(this);
     }
 
@@ -146,12 +149,11 @@ public class RestaurantsNearbyFragment extends SprocketsFragment
         final Status status = resp != null ? resp.getStatus() : UNKNOWN_ERROR;
         switch (status) {
             case OK:
-                GooglePlacesAdapter adapter = (GooglePlacesAdapter) mGrid.getAdapter();
-                adapter.swapPlaces(resp.getResult());
+                mAdapter.swapPlaces(resp.getResult());
                 if (mListener != null) {
                     int pos = mGrid.getCheckedItemPosition();
                     if (pos != INVALID_POSITION) { // restore state from when it was first clicked
-                        mListener.onRestaurantClick(adapter.getItem(pos));
+                        mListener.onRestaurantClick(mAdapter.getItem(pos));
                     }
                 }
                 break;
@@ -196,8 +198,7 @@ public class RestaurantsNearbyFragment extends SprocketsFragment
     @Override
     public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
         if (mListener != null) {
-            mListener.onRestaurantClick(
-                    ((GooglePlacesAdapter) mGrid.getAdapter()).getItem(position));
+            mListener.onRestaurantClick(mAdapter.getItem(position));
         }
     }
 
@@ -232,9 +233,7 @@ public class RestaurantsNearbyFragment extends SprocketsFragment
 
     @Override
     public void onLoaderReset(Loader<Response<List<Place>>> loader) {
-        if (mGrid != null) {
-            ((GooglePlacesAdapter) mGrid.getAdapter()).swapPlaces(null);
-        }
+        mAdapter.swapPlaces(null);
     }
 
     @Override
