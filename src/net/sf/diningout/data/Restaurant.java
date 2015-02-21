@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 pushbit <pushbit@gmail.com>
+ * Copyright 2014-2015 pushbit <pushbit@gmail.com>
  * 
  * This file is part of Dining Out.
  * 
@@ -18,6 +18,7 @@
 package net.sf.diningout.data;
 
 public class Restaurant extends Synced {
+    public String placeId;
     public String googleId;
     public String googleReference;
     public String name;
@@ -30,6 +31,7 @@ public class Restaurant extends Synced {
      * Reset the fields in this class (but not the parent) to their default values.
      */
     public Restaurant clear() {
+        placeId = null;
         googleId = null;
         googleReference = null;
         name = null;

@@ -19,19 +19,22 @@ package net.sf.diningout.picasso;
 
 import net.sf.sprockets.picasso.GradientTransformation;
 
-import static android.graphics.drawable.GradientDrawable.Orientation.BOTTOM_TOP;
+import jp.wasabeef.picasso.transformations.CropCircleTransformation;
+
+import static android.graphics.drawable.GradientDrawable.Orientation.BR_TL;
 import static android.graphics.drawable.GradientDrawable.Orientation.RIGHT_LEFT;
-import static android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM;
+import static android.graphics.drawable.GradientDrawable.Orientation.TL_BR;
+import static android.graphics.drawable.GradientDrawable.Orientation.TR_BL;
 import static net.sf.sprockets.app.SprocketsApplication.context;
 
 /**
  * Instances of Transformations.
  */
 public class Transformations {
-    public static final GradientTransformation UP =
-            new GradientTransformation(context(), BOTTOM_TOP);
-    public static final GradientTransformation DOWN =
-            new GradientTransformation(context(), TOP_BOTTOM);
+    public static final GradientTransformation BL = new GradientTransformation(context(), TR_BL);
+    public static final GradientTransformation TL = new GradientTransformation(context(), BR_TL);
+    public static final GradientTransformation BR = new GradientTransformation(context(), TL_BR);
     public static final GradientTransformation LEFT =
             new GradientTransformation(context(), RIGHT_LEFT);
+    public static final CropCircleTransformation CIRCLE = new CropCircleTransformation();
 }

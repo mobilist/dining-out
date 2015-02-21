@@ -64,14 +64,4 @@
         <item name="android:textColor">@color/attributions</item>
     </style>
 
-    <style name="Showcase" parent="ShowcaseView.Light">
-        <item name="sv_backgroundColor">@color/sv_background</item>
-        <item name="sv_titleTextAppearance">@style/TextAppearance.Showcase.Title</item>
-        <item name="sv_showcaseColor">@color/highlight</item>
-    </style>
-
-    <style name="TextAppearance.Showcase.Title" parent="@style/TextAppearance.ShowcaseView.Title">
-        <item name="android:textColor">@color/highlight</item>
-    </style>
-
 </resources>

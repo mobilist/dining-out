@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 pushbit <pushbit@gmail.com>
+ * Copyright 2014-2015 pushbit <pushbit@gmail.com>
  * 
  * This file is part of Dining Out.
  * 
@@ -19,6 +19,7 @@ package net.sf.diningout.app.ui;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.support.v4.widget.DrawerLayout;
 import android.view.View;
 import android.widget.ListView;
 
@@ -54,7 +55,11 @@ public class NavigationDrawerFragment extends BaseNavigationDrawerFragment {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         if (savedInstanceState == null) {
-            setItems(R.array.navigation_drawer_items).setSelectedItemResId(ITEMS.get(a.getClass()));
+            setItems(R.array.navigation_drawer_items);
+            Integer selected = ITEMS.get(a.getClass());
+            if (selected != null) {
+                setSelectedItemResId(selected);
+            }
             showSettings(true).showFeedback(true).showRate(true);
         }
     }
@@ -63,7 +68,10 @@ public class NavigationDrawerFragment extends BaseNavigationDrawerFragment {
     public void onListItemClick(ListView list, View view, int position, long id, int resId) {
         super.onListItemClick(list, view, position, id, resId);
         final NavigationDrawerActivity a = a();
-        a.getDrawerLayout().closeDrawer(START);
+        DrawerLayout layout = a.getDrawerLayout();
+        if (layout != null) {
+            layout.closeDrawer(START);
+        }
         if (resId == R.id.feedback) { // special external case
             final Intent intent = new Intent(ACTION_SENDTO,
                     Uris.mailto(Collections.singletonList(getString(R.string.feedback_destination)),
@@ -74,7 +82,7 @@ public class NavigationDrawerFragment extends BaseNavigationDrawerFragment {
                     public void run() {
                         startActivity(intent);
                     }
-                }, 300L); // start Activity after drawer closes
+                }, layout != null ? 300L : 0L); // start Activity after drawer closes
             }
             return;
         } else if (resId == R.id.rate) { // parent takes care of it
@@ -95,7 +103,7 @@ public class NavigationDrawerFragment extends BaseNavigationDrawerFragment {
                     }
                     a.overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
                 }
-            }, 300L);
+            }, layout != null ? 300L : 0L);
         }
     }
 }

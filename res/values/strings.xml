@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Dining Out</string>
-    <string name="author_email_address">pushbit@gmail.com</string>
 
     <!-- init -->
     <string name="init_title">Getting Started</string>
@@ -20,30 +19,36 @@
     <string name="init_friends_header_title">Add friends</string>
     <string name="init_friends_header_text">Follow friends who are also <i>Dining Out</i> and invite others to join.</string>
 
-    <!-- global -->
+    <!-- navigation drawer -->
     <string-array name="navigation_drawer_items">
         <item>@string/restaurants_title</item>
         <item>@string/friends_title</item>
         <item>@string/notifications_title</item>
     </string-array>
-    <string name="feedback_destination">@string/author_email_address</string>
+    <string name="feedback_destination">pushbit@gmail.com</string>
     <string name="feedback_subject">Dining Out feedback</string>
 
     <!-- restaurants -->
     <string name="restaurants_title">Restaurants</string>
+    <string name="by_name">by name</string>
+    <string name="by_last_visit">by last visit</string>
+    <string name="by_distance">by distance</string>
+    <string name="on_a_map">on a map</string>
+    <string name="by_rating">by rating</string>
     <string-array name="restaurants_sort">
-        <item>by name</item>
-        <item>by last visit</item>
-        <item>by distance</item>
-        <item>on a map</item>
-        <item>by rating</item>
+        <item>@string/by_name</item>
+        <item>@string/by_last_visit</item>
+        <item>@string/by_distance</item>
+        <item>@string/on_a_map</item>
+        <item>@string/by_rating</item>
     </string-array>
-    <string name="rating_distance">"★%1$.1f  ◉%2$.1f km"</string>
     <string name="restaurants_searchable_hint">Search restaurants</string>
     <string name="restaurants_share">Restaurants</string>
-    <string name="restaurants_showcase_title">Getting started</string>
-    <string name="restaurants_showcase_detail">Tap the “+” icon to add restaurants to your list.</string>
     <string name="restaurant_photo">Restaurant photo</string>
+    <string name="rating_km">"★%1$.1f  ◉%2$.1f km"</string>
+    <string name="rating_mi">"★%1$.1f  ◉%2$.1f mi"</string>
+    <string name="km">◉%.1f km</string>
+    <string name="mi">◉%.1f mi</string>
 
     <!-- restaurant -->
     <string name="add_address">Add street address</string>
@@ -110,6 +115,15 @@
     <string name="notifications">Notifications</string>
     <string name="ringtone">Ringtone</string>
     <string name="vibrate">Vibrate</string>
+    <string name="distance_units">Distance units</string>
+    <string name="automatic">Automatic</string>
+    <string name="kilometres">Kilometres</string>
+    <string name="miles">Miles</string>
+    <string-array name="distance_units_entries">
+        <item>@string/automatic</item>
+        <item>@string/kilometres</item>
+        <item>@string/miles</item>
+    </string-array>
     <string name="allow_analytics">Help improve Dining Out</string>
     <string name="allow_analytics_on">Send anonymous usage statistics</string>
     <string name="allow_analytics_off">Don’t send anonymous usage statistics</string>
@@ -124,5 +138,8 @@
         <item quantity="one">1 new review</item>
         <item quantity="other">%d new reviews</item>
     </plurals>
-    <string name="new_review">%1$s was at %2$s</string>
+    <string name="new_review">%1$s at %2$s</string>
+
+    <!-- config -->
+    <string name="autocomplete_types">establishment</string>
 </resources>

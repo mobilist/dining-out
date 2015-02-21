@@ -38,6 +38,7 @@ import net.sf.diningout.data.Sync.Action;
 import net.sf.diningout.data.Sync.Type;
 import net.sf.diningout.data.Synced;
 import net.sf.diningout.data.User;
+import net.sf.diningout.preference.Keys;
 import net.sf.sprockets.database.Cursors;
 import net.sf.sprockets.database.EasyCursor;
 import net.sf.sprockets.google.Place;
@@ -48,8 +49,10 @@ import net.sf.sprockets.google.Places.Params;
 import net.sf.sprockets.google.StreetView;
 import net.sf.sprockets.graphics.Colors;
 import net.sf.sprockets.preference.Prefs;
+import net.sf.sprockets.sql.SQLite;
 import net.sf.sprockets.util.Elements;
 import net.sf.sprockets.util.Geos;
+import net.sf.sprockets.util.MeasureUnit;
 import net.sf.sprockets.util.StringArrays;
 
 import org.apache.commons.io.filefilter.FileFilterUtils;
@@ -75,8 +78,6 @@ import static net.sf.diningout.preference.Keys.SHOW_SYNC_NOTIFICATIONS;
 import static net.sf.sprockets.app.SprocketsApplication.context;
 import static net.sf.sprockets.app.SprocketsApplication.cr;
 import static net.sf.sprockets.app.SprocketsApplication.res;
-import static net.sf.sprockets.database.sqlite.SQLite.datetime;
-import static net.sf.sprockets.database.sqlite.SQLite.normalise;
 import static net.sf.sprockets.gms.analytics.Trackers.exception;
 import static net.sf.sprockets.google.Places.Field.FORMATTED_ADDRESS;
 import static net.sf.sprockets.google.Places.Field.FORMATTED_PHONE_NUMBER;
@@ -88,6 +89,8 @@ import static net.sf.sprockets.google.Places.Field.REVIEWS;
 import static net.sf.sprockets.google.Places.Field.WEBSITE;
 import static net.sf.sprockets.google.Places.Request.PHOTO;
 import static net.sf.sprockets.io.MoreFiles.DOT_PART;
+import static net.sf.sprockets.util.MeasureUnit.KILOMETER;
+import static net.sf.sprockets.util.MeasureUnit.MILE;
 
 /**
  * Constants and methods for working with the content provider.
@@ -97,10 +100,12 @@ public class Contract {
      * Authority of the content provider.
      */
     public static final String AUTHORITY = "net.sf.diningout";
+
     /**
      * URI for the authority of the content provider.
      */
     public static final Uri AUTHORITY_URI = Uri.parse("content://" + AUTHORITY);
+
     /**
      * Local Broadcast: The user has been logged into the server and is being initialised.
      * <p>
@@ -108,27 +113,33 @@ public class Contract {
      * </p>
      */
     public static final String ACTION_USER_LOGGED_IN = "provider.action.USER_LOGGED_IN";
+
     /**
      * True if the user already has restaurants.
      */
     public static final String EXTRA_HAS_RESTAURANTS = "intent.extra.HAS_RESTAURANTS";
+
     /**
      * Local Broadcast: Contacts are being synchronised with the server.
      */
     public static final String ACTION_CONTACTS_SYNCING = "provider.action.CONTACTS_SYNCING";
+
     /**
      * Local Broadcast: Contacts have been synchronised with the server.
      */
     public static final String ACTION_CONTACTS_SYNCED = "provider.action.CONTACTS_SYNCED";
+
     /**
      * True if only contacts should be synchronised.
      */
     public static final String SYNC_EXTRAS_CONTACTS_ONLY = "contacts_only";
+
     /**
      * Update a restaurant's rating with the average of its reviews. The String argument must be the
      * ID of the restaurant to update.
      */
     public static final String CALL_UPDATE_RESTAURANT_RATING = "update_restaurant_rating";
+
     /**
      * Update a restaurant's last visit time with the time of the latest review. The String argument
      * must be the ID of the restaurant to update.
@@ -174,6 +185,7 @@ public class Contract {
          * 1 if the object needs to be synchronised with the server or 0 otherwise.
          */
         String DIRTY = "dirty";
+
         /**
          * Incremented by one each time {@link #DIRTY} is set to 1.
          */
@@ -253,22 +265,27 @@ public class Contract {
          * For the contacts provider. Null if the user is only on the server.
          */
         String ANDROID_LOOKUP_KEY = "android_lookup_key";
+
         /**
          * For the contacts provider. Null if the user is only on the server.
          */
         String ANDROID_ID = "android_id";
+
         /**
          * Null if the user is only on the server.
          */
         String NAME = "name";
+
         /**
          * Null if the user is only on the server.
          */
         String EMAIL = "email";
+
         /**
          * Base64 encoded SHA-512 hash of the email address.
          */
         String EMAIL_HASH = "email_hash";
+
         /**
          * 1 if the user is following this contact or 0 otherwise.
          */
@@ -298,10 +315,12 @@ public class Contract {
          */
         public static final Uri CONTENT_URI = Uri.withAppendedPath(AUTHORITY_URI, "contact");
         private static final String SUB_TYPE = "/vnd.diningout.contact";
+
         /**
          * MIME type of {@link #CONTENT_URI} providing a directory of contacts.
          */
         public static final String CONTENT_TYPE = CURSOR_DIR_BASE_TYPE + SUB_TYPE;
+
         /**
          * MIME type of a {@link #CONTENT_URI} subdirectory of a single contact.
          */
@@ -397,65 +416,89 @@ public class Contract {
         /**
          * Google's ID for the restaurant. Null if it's not a Google Place.
          */
+        String PLACE_ID = "place_id";
+
+        /**
+         * Google's ID for the restaurant. Null if it's not a Google Place.
+         *
+         * @deprecated use {@link #PLACE_ID} instead
+         */
+        @Deprecated
         String GOOGLE_ID = "google_id";
+
         /**
          * Token used to get the details of the restaurant. Null if it's not a Google Place.
+         *
+         * @deprecated use {@link #PLACE_ID} instead
          */
+        @Deprecated
         String GOOGLE_REFERENCE = "google_reference";
+
         /**
          * Google's web page for the restaurant. Null if it's not a Google Place.
          */
         String GOOGLE_URL = "google_url";
         String NAME = "name";
+
         /**
          * Upper case name without diacritics.
          */
         String NORMALISED_NAME = "normalised_name";
         String ADDRESS = "address";
+
         /**
          * If a Google Place, simplified address that stops after the city level.
          */
         String VICINITY = "vicinity";
         String LATITUDE = "latitude";
         String LONGITUDE = "longitude";
+
         /**
          * {@code Math.cos(latitude / 57.295779579d)}, used in distance calculation.
          */
         String LONGITUDE_COS = "longitude_cos";
+
         /**
-         * Squared distance in kilometres to the restaurant. SQLite doesn't have a square root
-         * function, so this must be done in Java later. Only available when
+         * Squared distance to the restaurant. Only available when
          * {@link Restaurants#distance(Location)} is included in the query projection.
          */
         String DISTANCE = "distance";
+
         /**
          * If a Google Place, includes prefixed country code.
          */
         String INTL_PHONE = "intl_phone";
+
         /**
          * If a Google Place, in local format.
          */
         String LOCAL_PHONE = "local_phone";
+
         /**
          * Restaurant's website.
          */
         String URL = "url";
+
         /**
          * From 1 to 4, if available.
          */
         String PRICE = "price";
+
         /**
          * From 1.0 to 5.0, if available.
          */
         String RATING = "rating";
+
         /**
          * User's private scratchpad. Null if empty.
          */
         String NOTES = "notes";
+
         /**
          * When the user last visited the restaurant. Null if not visited.
          */
         String LAST_VISIT_ON = "last_visit_on";
+
         /**
          * Restaurant that this one was merged into. Null if it hasn't been merged.
          */
@@ -486,22 +529,26 @@ public class Contract {
          */
         public static final Uri CONTENT_URI = Uri.withAppendedPath(AUTHORITY_URI, "restaurant");
         private static final String SUB_TYPE = "/vnd.diningout.restaurant";
+
         /**
          * MIME type of {@link #CONTENT_URI} providing a directory of restaurants.
          */
         public static final String CONTENT_TYPE = CURSOR_DIR_BASE_TYPE + SUB_TYPE;
+
         /**
          * MIME type of a {@link #CONTENT_URI} subdirectory of a single restaurant.
          */
         public static final String CONTENT_ITEM_TYPE = CURSOR_ITEM_BASE_TYPE + SUB_TYPE;
+
         /**
          * Distance in metres from a location to search for restaurants.
          */
         public static final int SEARCH_RADIUS = res().getInteger(R.integer.search_radius);
+
         /**
          * Place types to search for when searching for restaurants.
          */
-        public static final String SEARCH_TYPES = res().getString(R.string.search_types);
+        public static final String SEARCH_TYPES = "restaurant";
 
         private Restaurants() {
         }
@@ -580,21 +627,20 @@ public class Contract {
          * Get values from the place.
          */
         public static ContentValues values(Place place) {
-            return values(new ContentValues(16), place); // extra space in vals in case color added
+            return values(new ContentValues(15), place); // extra space in vals in case color added
         }
 
         /**
          * Put values from the place.
          *
-         * @param vals should have a size of 15 or greater
+         * @param vals should have a size of 14 or greater
          */
         public static ContentValues values(ContentValues vals, Place place) {
-            vals.put(GOOGLE_ID, place.getId());
-            vals.put(GOOGLE_REFERENCE, place.getReference());
+            vals.put(PLACE_ID, place.getPlaceId().getId());
             vals.put(GOOGLE_URL, place.getUrl());
             String name = place.getName();
             vals.put(NAME, name);
-            vals.put(NORMALISED_NAME, normalise(name));
+            vals.put(NORMALISED_NAME, SQLite.normalise(name));
             vals.put(ADDRESS, place.getFormattedAddress());
             vals.put(VICINITY, place.getVicinity());
             double lat = place.getLatitude();
@@ -628,19 +674,18 @@ public class Contract {
             int count = c.getCount();
             String address = Cursors.firstString(c);
             /* prepare for insert/update */
-            ContentValues vals = new ContentValues(17); // one extra space in case color added
+            ContentValues vals = new ContentValues(16); // one extra space in case color added
             vals.put(GLOBAL_ID, restaurant.globalId);
-            vals.put(GOOGLE_ID, restaurant.googleId);
-            vals.put(GOOGLE_REFERENCE, restaurant.googleReference);
-            if (!TextUtils.isEmpty(restaurant.googleId)) {
+            vals.put(PLACE_ID, restaurant.placeId);
+            if (!TextUtils.isEmpty(restaurant.placeId)) {
                 if (count == 0) { // insert placeholder
                     String name = Strings.nullToEmpty(restaurant.name);
                     vals.put(NAME, name);
-                    vals.put(NORMALISED_NAME, normalise(name));
+                    vals.put(NORMALISED_NAME, SQLite.normalise(name));
                 }
             } else {
                 vals.put(NAME, restaurant.name);
-                vals.put(NORMALISED_NAME, normalise(restaurant.name));
+                vals.put(NORMALISED_NAME, SQLite.normalise(restaurant.name));
                 if (!TextUtils.isEmpty(restaurant.address) && !restaurant.address.equals(address)) {
                     vals.put(ADDRESS, restaurant.address);
                     vals.put(VICINITY, restaurant.address);
@@ -670,44 +715,39 @@ public class Contract {
          */
         public static List<Restaurant> from(Cursor c) {
             List<Restaurant> restaurants = null;
-            int count = c.getCount();
-            if (count > 0) {
-                restaurants = new ArrayList<>(count);
-                while (c.moveToNext()) {
-                    Restaurant restaurant = new Restaurant();
-                    Syncing.from(c, restaurant);
-                    int col = c.getColumnIndex(GOOGLE_ID);
-                    if (col >= 0) {
-                        restaurant.googleId = c.getString(col);
-                    }
-                    col = c.getColumnIndex(GOOGLE_REFERENCE);
-                    if (col >= 0) {
-                        restaurant.googleReference = c.getString(col);
-                    }
-                    if (Strings.isNullOrEmpty(restaurant.googleId)) {
-                        col = c.getColumnIndex(NAME);
-                        if (col >= 0) {
-                            restaurant.name = c.getString(col);
-                        }
-                        col = c.getColumnIndex(ADDRESS);
-                        if (col >= 0) {
-                            restaurant.address = c.getString(col);
-                        }
-                        col = c.getColumnIndex(INTL_PHONE);
-                        if (col >= 0) {
-                            restaurant.phone = c.getString(col);
-                        }
-                        col = c.getColumnIndex(URL);
-                        if (col >= 0) {
-                            restaurant.url = c.getString(col);
-                        }
-                    }
-                    col = c.getColumnIndex(NOTES);
-                    if (col >= 0) {
-                        restaurant.notes = c.getString(col);
-                    }
-                    restaurants.add(restaurant);
+            while (c.moveToNext()) {
+                Restaurant restaurant = new Restaurant();
+                Syncing.from(c, restaurant);
+                int col = c.getColumnIndex(PLACE_ID);
+                if (col >= 0) {
+                    restaurant.placeId = c.getString(col);
                 }
+                if (TextUtils.isEmpty(restaurant.placeId)) {
+                    col = c.getColumnIndex(NAME);
+                    if (col >= 0) {
+                        restaurant.name = c.getString(col);
+                    }
+                    col = c.getColumnIndex(ADDRESS);
+                    if (col >= 0) {
+                        restaurant.address = c.getString(col);
+                    }
+                    col = c.getColumnIndex(INTL_PHONE);
+                    if (col >= 0) {
+                        restaurant.phone = c.getString(col);
+                    }
+                    col = c.getColumnIndex(URL);
+                    if (col >= 0) {
+                        restaurant.url = c.getString(col);
+                    }
+                }
+                col = c.getColumnIndex(NOTES);
+                if (col >= 0) {
+                    restaurant.notes = c.getString(col);
+                }
+                if (restaurants == null) {
+                    restaurants = new ArrayList<>(c.getCount());
+                }
+                restaurants.add(restaurant);
             }
             c.close();
             return restaurants;
@@ -723,25 +763,16 @@ public class Contract {
         }
 
         /**
-         * Get a {@code distance} column for a query projection that returns the squared distance in
-         * kilometres to a restaurant. SQLite doesn't have a square root function, so this must be
-         * done in Java later.
+         * Get a {@link #DISTANCE} result column that returns the squared distance (in km or mi,
+         * depending on user setting) from the location to a restaurant.
          */
         public static String distance(Location location) {
             if (location != null) {
-                double lat = location.getLatitude();
-                double lon = location.getLongitude();
-                /*
-                 * adapted from the "Improved approximate distance" section at
-				 * http://www.meridianworlddata.com/Distance-calculation.asp, 111.132 is for
-				 * kilometres, 69.054 could be used for miles
-				 */
-                return "(111.132 * (" + lat + " - latitude)) * (111.132 * (" + lat
-                        + " - latitude)) + (111.132 * (" + lon
-                        + " - longitude) * longitude_cos) * (111.132 * (" + lon
-                        + " - longitude) * longitude_cos) AS distance";
+                MeasureUnit unit = Keys.isDistanceUnit(MILE) ? MILE : KILOMETER;
+                return SQLite.distance(LATITUDE, LONGITUDE, LONGITUDE_COS,
+                        location.getLatitude(), location.getLongitude(), unit, DISTANCE);
             } else {
-                return "null AS distance";
+                return "null AS " + DISTANCE;
             }
         }
     }
@@ -754,18 +785,22 @@ public class Contract {
          * Restaurant the photo is for.
          */
         String RESTAURANT_ID = "restaurant_id";
+
         /**
          * Token used to download the photo.
          */
         String GOOGLE_REFERENCE = "google_reference";
+
         /**
          * Maximum width on the server. The local width depends on the screen size.
          */
         String WIDTH = "width";
+
         /**
          * Maximum height on the server. The local height depends on the screen size.
          */
         String HEIGHT = "height";
+
         /**
          * Null if the photo hasn't been downloaded yet or an ETag wasn't returned.
          */
@@ -782,14 +817,17 @@ public class Contract {
         public static final Uri CONTENT_URI = Uri.withAppendedPath(AUTHORITY_URI,
                 "restaurant_photo");
         private static final String SUB_TYPE = "/vnd.diningout.restaurant_photo";
+
         /**
          * MIME type of {@link #CONTENT_URI} providing a directory of restaurant photos.
          */
         public static final String CONTENT_TYPE = CURSOR_DIR_BASE_TYPE + SUB_TYPE;
+
         /**
          * MIME type of a {@link #CONTENT_URI} subdirectory of a single restaurant photo.
          */
         public static final String CONTENT_ITEM_TYPE = CURSOR_ITEM_BASE_TYPE + SUB_TYPE;
+
         /**
          * Directory for restaurant image files.
          */
@@ -923,23 +961,28 @@ public class Contract {
          * Restaurant reviewed.
          */
         String RESTAURANT_ID = "restaurant_id";
+
         /**
          * {@link Review.Type Type} of review.
          */
         String TYPE_ID = "type_id";
+
         /**
          * Friend that wrote the review. Null if the user wrote it.
          */
         String CONTACT_ID = "contact_id";
+
         /**
          * Public review author. Null if not a public review.
          */
         String AUTHOR_NAME = "author_name";
         String COMMENTS = "comments";
+
         /**
          * From 1 to 5, if available.
          */
         String RATING = "rating";
+
         /**
          * When the review was written.
          */
@@ -968,10 +1011,12 @@ public class Contract {
          */
         public static final Uri CONTENT_URI = Uri.withAppendedPath(AUTHORITY_URI, "review");
         private static final String SUB_TYPE = "/vnd.diningout.review";
+
         /**
          * MIME type of {@link #CONTENT_URI} providing a directory of reviews.
          */
         public static final String CONTENT_TYPE = CURSOR_DIR_BASE_TYPE + SUB_TYPE;
+
         /**
          * MIME type of a {@link #CONTENT_URI} subdirectory of a single review.
          */
@@ -1014,7 +1059,7 @@ public class Contract {
                         vals[i].put(COMMENTS, text);
                         int rating = review.getRating();
                         vals[i].put(RATING, rating > 0 ? rating : null);
-                        vals[i].put(WRITTEN_ON, datetime(review.getTime() * 1000));
+                        vals[i].put(WRITTEN_ON, SQLite.datetime(review.getTime() * 1000));
                         vals[i].put(DIRTY, 0); // not synced to server
                     } else if (vals[i] != null) {
                         vals[i].clear();
@@ -1109,10 +1154,12 @@ public class Contract {
         public static final Uri CONTENT_URI = Uri.withAppendedPath(AUTHORITY_URI,
                 "review_join_restaurant");
         private static final String SUB_TYPE = "/vnd.diningout.review_join_restaurant";
+
         /**
          * MIME type of {@link #CONTENT_URI} providing a directory of reviews and their restaurants.
          */
         public static final String CONTENT_TYPE = CURSOR_DIR_BASE_TYPE + SUB_TYPE;
+
         /**
          * MIME type of a {@link #CONTENT_URI} subdirectory of a single review and its restaurant.
          */
@@ -1133,10 +1180,12 @@ public class Contract {
         public static final Uri CONTENT_URI = Uri.withAppendedPath(AUTHORITY_URI,
                 "review_join_contact");
         private static final String SUB_TYPE = "/vnd.diningout.review_join_contact";
+
         /**
          * MIME type of {@link #CONTENT_URI} providing a directory of reviews and their contacts.
          */
         public static final String CONTENT_TYPE = CURSOR_DIR_BASE_TYPE + SUB_TYPE;
+
         /**
          * MIME type of a {@link #CONTENT_URI} subdirectory of a single review and its contact.
          */
@@ -1157,11 +1206,13 @@ public class Contract {
         public static final Uri CONTENT_URI = Uri.withAppendedPath(AUTHORITY_URI,
                 "review_join_all");
         private static final String SUB_TYPE = "/vnd.diningout.review_join_all";
+
         /**
          * MIME type of {@link #CONTENT_URI} providing a directory of reviews and their restaurants
          * and contacts.
          */
         public static final String CONTENT_TYPE = CURSOR_DIR_BASE_TYPE + SUB_TYPE;
+
         /**
          * MIME type of a {@link #CONTENT_URI} subdirectory of a single review and its restaurant
          * and contact.
@@ -1181,6 +1232,7 @@ public class Contract {
          */
         String RESTAURANT_ID = "restaurant_id";
         String COMMENTS = "comments";
+
         /**
          * From 1 to 5, if available.
          */
@@ -1206,10 +1258,12 @@ public class Contract {
          */
         public static final Uri CONTENT_URI = Uri.withAppendedPath(AUTHORITY_URI, "review_draft");
         private static final String SUB_TYPE = "/vnd.diningout.review_draft";
+
         /**
          * MIME type of {@link #CONTENT_URI} providing a directory of review drafts.
          */
         public static final String CONTENT_TYPE = CURSOR_DIR_BASE_TYPE + SUB_TYPE;
+
         /**
          * MIME type of a {@link #CONTENT_URI} subdirectory of a single review draft.
          */
@@ -1243,11 +1297,13 @@ public class Contract {
         public static final Uri CONTENT_URI = Uri.withAppendedPath(AUTHORITY_URI,
                 "review_draft_join_restaurant");
         private static final String SUB_TYPE = "/vnd.diningout.review_draft_join_restaurant";
+
         /**
          * MIME type of {@link #CONTENT_URI} providing a directory of review drafts and their
          * restaurants.
          */
         public static final String CONTENT_TYPE = CURSOR_DIR_BASE_TYPE + SUB_TYPE;
+
         /**
          * MIME type of a {@link #CONTENT_URI} subdirectory of a single review draft and its
          * restaurant.
@@ -1266,14 +1322,17 @@ public class Contract {
          * {@link Type} of subject.
          */
         String TYPE_ID = "type_id";
+
         /**
          * Local ID of subject.
          */
         String OBJECT_ID = "object_id";
+
         /**
          * {@link Action} taken on the subject.
          */
         String ACTION_ID = "action_id";
+
         /**
          * When the action was taken, .
          */
@@ -1299,10 +1358,12 @@ public class Contract {
          */
         public static final Uri CONTENT_URI = Uri.withAppendedPath(AUTHORITY_URI, "sync");
         private static final String SUB_TYPE = "/vnd.diningout.sync";
+
         /**
          * MIME type of {@link #CONTENT_URI} providing a directory of syncs.
          */
         public static final String CONTENT_TYPE = CURSOR_DIR_BASE_TYPE + SUB_TYPE;
+
         /**
          * MIME type of a {@link #CONTENT_URI} subdirectory of a single sync.
          */
@@ -1354,11 +1415,13 @@ public class Contract {
          */
         public static final Uri CONTENT_URI = Uri.withAppendedPath(AUTHORITY_URI, "sync_join_all");
         private static final String SUB_TYPE = "/vnd.diningout.sync_join_all";
+
         /**
          * MIME type of {@link #CONTENT_URI} providing a directory of syncs and their reviews,
          * restaurants, and contacts.
          */
         public static final String CONTENT_TYPE = CURSOR_DIR_BASE_TYPE + SUB_TYPE;
+
         /**
          * MIME type of a {@link #CONTENT_URI} subdirectory of a single sync and its review,
          * restaurant, and contact.

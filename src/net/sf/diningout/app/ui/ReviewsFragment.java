@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 pushbit <pushbit@gmail.com>
+ * Copyright 2014-2015 pushbit <pushbit@gmail.com>
  * 
  * This file is part of Dining Out.
  * 
@@ -89,8 +89,8 @@ import static net.sf.diningout.provider.Contract.CALL_UPDATE_RESTAURANT_LAST_VIS
 import static net.sf.diningout.provider.Contract.CALL_UPDATE_RESTAURANT_RATING;
 import static net.sf.sprockets.app.SprocketsApplication.cr;
 import static net.sf.sprockets.app.SprocketsApplication.res;
-import static net.sf.sprockets.database.sqlite.SQLite.millis;
 import static net.sf.sprockets.gms.analytics.Trackers.event;
+import static net.sf.sprockets.sql.SQLite.millis;
 
 /**
  * Displays a list of reviews for a restaurant.
@@ -184,7 +184,8 @@ public class ReviewsFragment extends TabListFragment implements LoaderCallbacks<
                     case PRIVATE:
                         uri = ReviewsJoinContacts.CONTENT_URI;
                         proj = new String[]{ReviewsJoinContacts.REVIEW__ID, Reviews.CONTACT_ID,
-                                Contacts.NAME, Reviews.COMMENTS, Reviews.RATING,
+                                Contacts.ANDROID_LOOKUP_KEY, Contacts.ANDROID_ID, Contacts.NAME,
+                                Contacts.COLOR, Reviews.COMMENTS, Reviews.RATING,
                                 millis(Reviews.WRITTEN_ON)};
                         sel = Reviews.RESTAURANT_ID + " = ? AND " + Reviews.TYPE_ID + " = ? AND "
                                 + ReviewsJoinContacts.REVIEW_STATUS_ID + " = ?";
@@ -249,7 +250,7 @@ public class ReviewsFragment extends TabListFragment implements LoaderCallbacks<
                             review.mComments.setText(c.getString(ReviewDrafts.COMMENTS));
                         } else if (status == DELETED && mEditing && getReview() != null
                                 && mDraftVersion >= 0 && version > mDraftVersion) {
-                            discardReview();
+                            discardReview(false);
                         }
                     }
                     mDraftVersion = version;
@@ -309,7 +310,11 @@ public class ReviewsFragment extends TabListFragment implements LoaderCallbacks<
                 editReview(true);
                 return true;
             case R.id.done:
-                if (TextUtils.getTrimmedLength(getReview().mComments.getText()) == 0) { // confirm
+                EditReviewHolder review = getReview();
+                if (review == null) { // somehow can click done without editing a review
+                    return true;
+                }
+                if (TextUtils.getTrimmedLength(review.mComments.getText()) == 0) { // confirm
                     DialogFragment dialog = new EmptyReviewDialog();
                     dialog.setTargetFragment(this, 0);
                     dialog.show(getFragmentManager(), null);
@@ -331,7 +336,7 @@ public class ReviewsFragment extends TabListFragment implements LoaderCallbacks<
         if (mReviewId == 0) {
             deleteDraft();
         }
-        discardReview();
+        discardReview(false);
     }
 
     /**
@@ -369,7 +374,7 @@ public class ReviewsFragment extends TabListFragment implements LoaderCallbacks<
             list.smoothScrollToPositionFromTop(1, Themes.getActionBarSize(a) * 2 + mDividerHeight);
             r.mComments.requestFocus();
             if (a instanceof RestaurantActivity
-                    && ((RestaurantActivity) a).getCurrentFragment() == this) {
+                    && ((RestaurantActivity) a).getCurrentTabFragment() == this) {
                 InputMethods.show(r.mComments);
             }
         }
@@ -402,8 +407,10 @@ public class ReviewsFragment extends TabListFragment implements LoaderCallbacks<
 
     /**
      * Remove or reset the header View for adding or editing a review.
+     *
+     * @param remove true if the header View should be removed even if there are no reviews
      */
-    private void discardReview() {
+    private void discardReview(final boolean remove) {
         final ListView view = getListView();
         InputMethods.hide(view);
         view.postDelayed(new Runnable() {
@@ -413,7 +420,7 @@ public class ReviewsFragment extends TabListFragment implements LoaderCallbacks<
                     return;
                 }
                 BaseAdapter adapter = (BaseAdapter) getListAdapter();
-                if (adapter.getCount() > 0) {
+                if (remove || adapter.getCount() > 0) {
                     view.removeHeaderView(view.getAdapter().getView(1, null, view));
                     adapter.notifyDataSetChanged(); // ListView only tells own Observer
                     mEditing = false;
@@ -425,7 +432,7 @@ public class ReviewsFragment extends TabListFragment implements LoaderCallbacks<
                     review.mComments.setText(null);
                 }
             }
-        }, 500L); // after input method hidden and cursor hopefully reloaded on slower devices
+        }, !remove ? 500L : 0L); // after input method hidden and cursor reloaded on slower devices
         mRatingPos = DEFAULT_RATING_POS;
         mComments = null;
     }
@@ -459,6 +466,26 @@ public class ReviewsFragment extends TabListFragment implements LoaderCallbacks<
     }
 
     @Override
+    void setRestaurant(long id) {
+        checkDraft();
+        discardReview(true);
+        mRestaurantId = id;
+        mEditing = false;
+        mReviewId = 0L;
+        mRatingPos = -1;
+        mComments = null;
+        mDraftVersion = -1L;
+        if (mActionMode != null) {
+            mActionMode.finish();
+        }
+        LoaderManager lm = getLoaderManager();
+        lm.restartLoader(LOADER_REVIEWS, null, this);
+        if (mTypeId == PRIVATE.id) {
+            lm.restartLoader(LOADER_REVIEW_DRAFT, null, this);
+        }
+    }
+
+    @Override
     public void onLoaderReset(Loader<EasyCursor> loader) {
         ((CursorAdapter) getListAdapter()).swapCursor(null);
     }
@@ -466,7 +493,16 @@ public class ReviewsFragment extends TabListFragment implements LoaderCallbacks<
     @Override
     public void onPause() {
         super.onPause();
-        if (mReviewId == 0 && !a.isChangingConfigurations()) { // save add review draft
+        if (!a.isChangingConfigurations()) {
+            checkDraft();
+        }
+    }
+
+    /**
+     * Save any new review draft.
+     */
+    private void checkDraft() {
+        if (mReviewId == 0) {
             EditReviewHolder review = getReview();
             if (review != null) {
                 if (TextUtils.getTrimmedLength(review.mComments.getText()) > 0) {

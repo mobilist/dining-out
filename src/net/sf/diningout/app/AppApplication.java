@@ -23,6 +23,7 @@ import android.os.Bundle;
 import android.preference.PreferenceManager;
 
 import com.google.android.gms.analytics.GoogleAnalytics;
+import com.google.android.gms.analytics.Tracker;
 
 import net.sf.diningout.R;
 import net.sf.diningout.accounts.Accounts;
@@ -34,8 +35,10 @@ import org.apache.commons.io.FileUtils;
 
 import java.io.File;
 
+import static net.sf.diningout.BuildConfig.TRACKING_ID;
 import static net.sf.diningout.preference.Keys.ALLOW_ANALYTICS;
 import static net.sf.diningout.preference.Keys.CLOUD_ID;
+import static net.sf.diningout.preference.Keys.MIGRATE_TO_PLACE_ID;
 import static net.sf.diningout.provider.Contract.AUTHORITY;
 
 /**
@@ -45,12 +48,19 @@ public class AppApplication extends VersionedApplication {
     @Override
     public void onCreate() {
         super.onCreate();
+        /* prepare the analytics tracker */
         GoogleAnalytics ga = GoogleAnalytics.getInstance(this);
         ga.enableAutoActivityReports(this);
         if (!Prefs.getBoolean(this, ALLOW_ANALYTICS)) {
             ga.setAppOptOut(true);
         }
-        Trackers.use(this, ga.newTracker(R.xml.tracker));
+        Tracker tracker = ga.newTracker(R.xml.tracker);
+        tracker.set("&tid", TRACKING_ID);
+        Trackers.use(this, tracker);
+        /* start migration tasks */
+        if (Prefs.getBoolean(this, MIGRATE_TO_PLACE_ID)) {
+            startService(new Intent(this, RestaurantsPlaceIdService.class));
+        }
     }
 
     @Override
@@ -72,6 +82,9 @@ public class AppApplication extends VersionedApplication {
         if (oldCode < 107) { // get colors of existing photos
             startService(new Intent(this, RestaurantColorService.class));
             startService(new Intent(this, FriendColorService.class));
+        }
+        if (oldCode < 108) {
+            Prefs.putBoolean(this, MIGRATE_TO_PLACE_ID, true);
         }
     }
 }

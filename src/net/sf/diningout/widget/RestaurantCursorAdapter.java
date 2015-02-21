@@ -1,5 +1,5 @@
 /*
- * Copyright 2013 pushbit <pushbit@gmail.com>
+ * Copyright 2013-2015 pushbit <pushbit@gmail.com>
  * 
  * This file is part of Dining Out.
  * 
@@ -20,6 +20,7 @@ package net.sf.diningout.widget;
 import android.content.Context;
 import android.database.Cursor;
 import android.view.View;
+import android.widget.AbsListView;
 import android.widget.GridView;
 
 import net.sf.diningout.R;
@@ -30,22 +31,30 @@ import net.sf.sprockets.view.ViewHolder;
 import net.sf.sprockets.widget.GridCard;
 import net.sf.sprockets.widget.ResourceEasyCursorAdapter;
 
+import static android.provider.BaseColumns._ID;
+
 /**
  * Translates restaurant rows to Views.
  */
 public class RestaurantCursorAdapter extends ResourceEasyCursorAdapter {
+    private final GridView mView;
+
     /**
      * Restaurant photo is resized according to these measurements.
      */
     private final GridCard mCard;
+    private long mSelectedId;
+
     /**
      * True if the cursor has the rating column.
      */
     private boolean mHasRating;
+
     /**
      * True if the cursor has the last_visit_on column.
      */
     private boolean mHasVisit;
+
     /**
      * True if the cursor has the distance column.
      */
@@ -53,23 +62,49 @@ public class RestaurantCursorAdapter extends ResourceEasyCursorAdapter {
 
     public RestaurantCursorAdapter(GridView view) {
         super(view.getContext(), R.layout.restaurants_adapter, null, 0);
+        mView = view;
         mCard = new GridCard(view);
+    }
+
+    /**
+     * Set the restaurant's View as {@link AbsListView#setItemChecked(int, boolean) checked} and
+     * scroll to it.
+     */
+    public RestaurantCursorAdapter setSelectedId(long restaurantId) {
+        mSelectedId = restaurantId;
+        return this;
     }
 
     @Override
     public Cursor swapCursor(Cursor newCursor) {
+        Cursor oldCursor = super.swapCursor(newCursor);
         if (newCursor != null) {
-            mHasRating = newCursor.getColumnIndex(Restaurants.RATING) >= 0;
-            mHasVisit = newCursor.getColumnIndex(Restaurants.LAST_VISIT_ON) >= 0;
-            mHasDistance = newCursor.getColumnIndex(Restaurants.DISTANCE) >= 0;
+            EasyCursor c = (EasyCursor) newCursor;
+            mHasRating = c.getColumnIndex(Restaurants.RATING) >= 0;
+            mHasVisit = c.getColumnIndex(Restaurants.LAST_VISIT_ON) >= 0;
+            mHasDistance = c.getColumnIndex(Restaurants.DISTANCE) >= 0;
+            if (mSelectedId > 0) {
+                int oldPosition = c.getPosition();
+                c.moveToPosition(-1);
+                while (c.moveToNext()) {
+                    if (c.getLong(_ID) == mSelectedId) {
+                        mSelectedId = 0L; // don't set checked again
+                        int pos = c.getPosition();
+                        mView.setItemChecked(pos, true);
+                        mView.setSelection(pos);
+                        break;
+                    }
+                }
+                c.moveToPosition(oldPosition);
+            }
         }
-        return super.swapCursor(newCursor);
+        return oldCursor;
     }
 
     @Override
     public void bindView(View view, Context context, EasyCursor c) {
         RestaurantHolder restaurant = ViewHolder.get(view, RestaurantHolder.class);
-        restaurant.photo(RestaurantPhotos.uriForRestaurant(c.getLong(Restaurants._ID)), mCard, c)
+        restaurant.photo(RestaurantPhotos.uriForRestaurant(c.getLong(_ID)), mCard, c)
                 .name(c.getString(Restaurants.NAME));
         if (mHasRating) {
             restaurant.rating(c.getFloat(Restaurants.RATING));

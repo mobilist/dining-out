@@ -11,6 +11,13 @@
         android:layout_marginRight="@dimen/cards_parent_margin"
         android:background="@drawable/card">
 
+        <ImageView
+            android:id="@+id/photo"
+            android:layout_width="@dimen/review_photo"
+            android:layout_height="@dimen/review_photo"
+            android:layout_marginRight="@dimen/padding"
+            android:contentDescription="@string/friend_photo"/>
+
         <TextView
             android:id="@+id/rating"
             style="@style/Card.Text"
@@ -36,6 +43,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_toLeftOf="@id/time"
+            android:layout_toRightOf="@id/photo"
             android:maxLines="1"/>
 
         <TextView

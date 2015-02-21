@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 pushbit <pushbit@gmail.com>
+ * Copyright 2014-2015 pushbit <pushbit@gmail.com>
  * 
  * This file is part of Dining Out.
  * 
@@ -17,6 +17,7 @@
 
 package net.sf.diningout.app.ui;
 
+import android.app.Fragment;
 import android.app.ListFragment;
 import android.content.res.Resources;
 import android.database.DataSetObserver;
@@ -42,6 +43,8 @@ import android.widget.Space;
 import com.astuetz.PagerSlidingTabStrip;
 
 import net.sf.diningout.R;
+import net.sf.diningout.app.ui.RestaurantsFragment.Listener;
+import net.sf.diningout.widget.RestaurantCursorAdapter;
 import net.sf.sprockets.app.ui.SprocketsActivity;
 import net.sf.sprockets.app.ui.SprocketsListFragment;
 import net.sf.sprockets.content.res.Themes;
@@ -63,6 +66,7 @@ import static android.support.v4.view.ViewPager.SCROLL_STATE_IDLE;
 import static android.view.MotionEvent.ACTION_CANCEL;
 import static android.view.MotionEvent.ACTION_DOWN;
 import static android.view.MotionEvent.ACTION_UP;
+import static android.widget.AbsListView.CHOICE_MODE_SINGLE;
 import static android.widget.AdapterView.ITEM_VIEW_TYPE_HEADER_OR_FOOTER;
 import static net.sf.diningout.data.Review.Type.GOOGLE;
 import static net.sf.diningout.data.Review.Type.PRIVATE;
@@ -73,11 +77,17 @@ import static net.sf.sprockets.gms.analytics.Trackers.event;
  * Displays a restaurant's details and reviews. Callers must include {@link #EXTRA_ID} in their
  * Intent extras.
  */
-public class RestaurantActivity extends SprocketsActivity implements OnScrollApprover {
+public class RestaurantActivity extends SprocketsActivity implements OnScrollApprover, Listener {
     /**
      * ID of the restaurant.
      */
     public static final String EXTRA_ID = "intent.extra.ID";
+
+    /**
+     * Position of the selected sort option.
+     */
+    public static final String EXTRA_SORT = "intent.extra.SORT";
+
     /**
      * Image to display while the restaurant photo is loading.
      */
@@ -92,7 +102,9 @@ public class RestaurantActivity extends SprocketsActivity implements OnScrollApp
     PagerSlidingTabStrip mTabs;
     @InjectView(R.id.pager)
     ViewPager mPager;
+    private long mId;
     private int mActionBarSize;
+
     /**
      * True if the current touch event started on a tab.
      */
@@ -101,6 +113,7 @@ public class RestaurantActivity extends SprocketsActivity implements OnScrollApp
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        mId = getIntent().getLongExtra(EXTRA_ID, 0L);
         setContentView(R.layout.restaurant_activity);
         mActionBarSize = Themes.getActionBarSize(this);
         mPager.setOffscreenPageLimit(sTabTitles.length - 1); // keep all Fragments alive
@@ -111,15 +124,71 @@ public class RestaurantActivity extends SprocketsActivity implements OnScrollApp
     }
 
     @Override
+    public void onAttachFragment(Fragment fragment) {
+        super.onAttachFragment(fragment);
+        if (fragment instanceof RestaurantsFragment) {
+            int sort = getIntent().getIntExtra(EXTRA_SORT, -1);
+            if (sort >= 0) {
+                ((RestaurantsFragment) fragment).setSort(sort);
+            }
+        }
+    }
+
+    @Override
     public boolean onScroll(OnScrollListener listener, AbsListView view, int first, int visible,
                             int total) {
         /* only when list is from current page */
-        TabListFragment item = getCurrentFragment();
+        TabListFragment item = getCurrentTabFragment();
         return item != null && item.getView() != null && view == item.getListView();
     }
 
-    TabListFragment getCurrentFragment() {
+    TabListFragment getCurrentTabFragment() {
         return ((PagerAdapter) mPager.getAdapter()).mItems[mPager.getCurrentItem()];
+    }
+
+    @Override
+    public void onViewCreated(AbsListView view) {
+        int padding = view.getPaddingTop();
+        view.setPadding(padding, Themes.getActionBarSize(this) + padding, padding, padding);
+        view.setChoiceMode(CHOICE_MODE_SINGLE);
+        ((RestaurantCursorAdapter) view.getAdapter()).setSelectedId(mId);
+    }
+
+    @Override
+    public boolean onRestaurantsOptionsMenu() {
+        return false;
+    }
+
+    @Override
+    public void onRestaurantsSearch(String query) {
+    }
+
+    @Override
+    public void onRestaurantClick(View view, long id) {
+        if (mId != id) {
+            mId = id;
+            getIntent().putExtra(EXTRA_ID, id);
+            restaurant().show(id);
+            for (TabListFragment frag : ((PagerAdapter) mPager.getAdapter()).mItems) {
+                frag.setRestaurant(id);
+            }
+            getCurrentTabFragment().getListView().smoothScrollToPosition(0);
+            event("restaurant", "change");
+        }
+    }
+
+    /**
+     * Get the restaurant fragment.
+     */
+    private RestaurantFragment restaurant() {
+        return (RestaurantFragment) getFragmentManager().findFragmentById(R.id.detail);
+    }
+
+    /**
+     * Get the restaurants fragment if it is added.
+     */
+    private RestaurantsFragment restaurants() {
+        return (RestaurantsFragment) getFragmentManager().findFragmentById(R.id.restaurants);
     }
 
     @Override
@@ -165,13 +234,12 @@ public class RestaurantActivity extends SprocketsActivity implements OnScrollApp
 
         @Override
         public TabListFragment getItem(int position) {
-            long id = getIntent().getLongExtra(EXTRA_ID, 0L);
             switch (position) {
                 case 0:
                 case 1:
-                    return ReviewsFragment.newInstance(id, position == 0 ? PRIVATE : GOOGLE);
+                    return ReviewsFragment.newInstance(mId, position == 0 ? PRIVATE : GOOGLE);
                 case 2:
-                    return NotesFragment.newInstance(id);
+                    return NotesFragment.newInstance(mId);
             }
             return null;
         }
@@ -278,7 +346,7 @@ public class RestaurantActivity extends SprocketsActivity implements OnScrollApp
     private class TabsTouchListener implements OnTouchListener {
         @Override
         public boolean onTouch(View v, MotionEvent event) {
-            ListFragment frag = getCurrentFragment();
+            ListFragment frag = getCurrentTabFragment();
             if (frag == null || frag.getView() == null) {
                 return false; // list not ready yet
             }
@@ -353,6 +421,11 @@ public class RestaurantActivity extends SprocketsActivity implements OnScrollApp
             super.setListAdapter(adapter);
             adapter.registerDataSetObserver(new Observer());
         }
+
+        /**
+         * Update the list for the restaurant.
+         */
+        abstract void setRestaurant(long id);
 
         /**
          * Forwards touch events to the overlaid detail View.

@@ -9,7 +9,7 @@
         android:id="@+id/settings"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        class="net.sf.sprockets.app.ui.SprocketsPreferenceFragment"
+        class="net.sf.diningout.app.ui.SettingsActivity$SettingsFragment"
         sprockets:preferences="@xml/preferences"/>
 
     <include layout="@layout/navigation_drawer"/>

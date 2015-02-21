@@ -111,7 +111,7 @@ public class AppContentProvider extends DbContentProvider {
 
     @Override
     protected SQLiteOpenHelper getOpenHelper() {
-        mHelper = new DbOpenHelper(getContext(), "dining-out-v100.db", 2);
+        mHelper = new DbOpenHelper(getContext(), "dining-out-v100.db", 3);
         return mHelper;
     }
 

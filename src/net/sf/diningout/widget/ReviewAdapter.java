@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 pushbit <pushbit@gmail.com>
+ * Copyright 2014-2015 pushbit <pushbit@gmail.com>
  * 
  * This file is part of Dining Out.
  * 
@@ -18,22 +18,31 @@
 package net.sf.diningout.widget;
 
 import android.content.Context;
+import android.net.Uri;
+import android.provider.ContactsContract;
 import android.text.Html;
 import android.text.format.DateUtils;
 import android.view.View;
+import android.widget.ImageView;
 import android.widget.TextView;
 
+import com.squareup.picasso.Callback.EmptyCallback;
+import com.squareup.picasso.Picasso;
+
 import net.sf.diningout.R;
+import net.sf.diningout.picasso.Placeholders;
 import net.sf.diningout.provider.Contract.Contacts;
 import net.sf.diningout.provider.Contract.Reviews;
 import net.sf.sprockets.database.EasyCursor;
 import net.sf.sprockets.view.ViewHolder;
+import net.sf.sprockets.view.Views;
 import net.sf.sprockets.widget.ResourceEasyCursorAdapter;
 
 import butterknife.InjectView;
 
 import static android.text.format.DateUtils.FORMAT_ABBREV_ALL;
 import static android.text.format.DateUtils.MINUTE_IN_MILLIS;
+import static net.sf.diningout.picasso.Transformations.CIRCLE;
 
 /**
  * Translates review rows to Views.
@@ -46,10 +55,35 @@ public class ReviewAdapter extends ResourceEasyCursorAdapter {
     @Override
     public void bindView(View view, Context context, EasyCursor c) {
         ReviewHolder review = ViewHolder.get(view, ReviewHolder.class);
+        photo(context, review.mPhoto, c);
         review.mName.setText(name(context, c));
         review.mTime.setText(time(context, c));
         review.mRating.setText(c.getString(Reviews.RATING));
         review.mComments.setText(comments(c));
+    }
+
+    /**
+     * Load the contact's photo into the View.
+     */
+    private void photo(Context context, final ImageView view, EasyCursor c) {
+        if (c.getColumnIndex(Reviews.CONTACT_ID) >= 0 && !c.isNull(Reviews.CONTACT_ID)) {
+            String key = c.getString(Contacts.ANDROID_LOOKUP_KEY);
+            long id = c.getLong(Contacts.ANDROID_ID);
+            Uri uri = key != null && id > 0 ? ContactsContract.Contacts.getLookupUri(id, key)
+                    : null;
+            final String name = c.getString(Contacts.NAME);
+            Picasso.with(context).load(uri).resizeDimen(R.dimen.review_photo, R.dimen.review_photo)
+                    .centerCrop().transform(CIRCLE).placeholder(Placeholders.round(c))
+                    .into(view, new EmptyCallback() {
+                        @Override
+                        public void onError() {
+                            Placeholders.round(view, name);
+                        }
+                    });
+            Views.visible(view);
+        } else {
+            Views.gone(view);
+        }
     }
 
     /**
@@ -89,6 +123,8 @@ public class ReviewAdapter extends ResourceEasyCursorAdapter {
     }
 
     public static class ReviewHolder extends ViewHolder {
+        @InjectView(R.id.photo)
+        ImageView mPhoto;
         @InjectView(R.id.name)
         TextView mName;
         @InjectView(R.id.time)

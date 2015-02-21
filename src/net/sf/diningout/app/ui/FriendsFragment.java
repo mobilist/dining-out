@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2014 pushbit <pushbit@gmail.com>
+ * Copyright 2013-2015 pushbit <pushbit@gmail.com>
  * 
  * This file is part of Dining Out.
  * 
@@ -49,11 +49,13 @@ import android.widget.GridView;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import com.squareup.picasso.Callback.EmptyCallback;
 import com.squareup.picasso.Picasso;
 
 import net.sf.diningout.R;
 import net.sf.diningout.accounts.Accounts;
 import net.sf.diningout.app.ReviewsService;
+import net.sf.diningout.picasso.Placeholders;
 import net.sf.diningout.provider.Contract.Contacts;
 import net.sf.sprockets.app.ui.SprocketsFragment;
 import net.sf.sprockets.content.Content;
@@ -81,8 +83,7 @@ import static android.view.View.GONE;
 import static android.view.View.VISIBLE;
 import static net.sf.diningout.app.ReviewsService.EXTRA_ID;
 import static net.sf.diningout.data.Status.ACTIVE;
-import static net.sf.diningout.picasso.Placeholders.get;
-import static net.sf.diningout.picasso.Transformations.UP;
+import static net.sf.diningout.picasso.Transformations.TL;
 import static net.sf.diningout.provider.Contract.ACTION_CONTACTS_SYNCED;
 import static net.sf.diningout.provider.Contract.ACTION_CONTACTS_SYNCING;
 import static net.sf.diningout.provider.Contract.AUTHORITY;
@@ -434,22 +435,29 @@ public class FriendsFragment extends SprocketsFragment implements LoaderCallback
 
         @Override
         public void bindView(View view, Context context, ReadCursor c) {
-            FriendHolder friend = ViewHolder.get(view, FriendHolder.class);
+            final FriendHolder friend = ViewHolder.get(view, FriendHolder.class);
             /* load contact photo */
             String key = c.getString(Contacts.ANDROID_LOOKUP_KEY);
             long id = c.getLong(Contacts.ANDROID_ID);
             Uri uri = key != null && id > 0 ? ContactsContract.Contacts.getLookupUri(id, key)
                     : null;
+            final String name = c.getString(Contacts.NAME);
             Picasso.with(context).load(uri).resize(mCard.getWidth(), mCard.getHeight())
-                    .centerCrop().transform(UP).placeholder(get(c)).into(friend.mPhoto);
+                    .centerCrop().transform(TL).placeholder(Placeholders.rect(c))
+                    .into(friend.mPhoto, new EmptyCallback() {
+                        @Override
+                        public void onError() {
+                            Placeholders.rect(friend.mPhoto, name);
+                        }
+                    });
             /* select if user already following or deselect if unfollowed remotely */
             boolean isUser = !c.isNull(Contacts.GLOBAL_ID);
             if (isUser && !c.wasRead()) {
                 mGrid.setItemChecked(c.getPosition(), c.getInt(Contacts.FOLLOWING) == 1);
             }
             boolean isChecked = mGrid.isItemChecked(c.getPosition());
-            String name = c.getString(isChecked && !isUser ? Contacts.EMAIL : Contacts.NAME);
-            updateName(friend.mName, name, isChecked, isUser);
+            String nameOrEmail = c.getString(isChecked && !isUser ? Contacts.EMAIL : Contacts.NAME);
+            updateName(friend.mName, nameOrEmail, isChecked, isUser);
             updateAction(friend.mAction, isChecked, isUser);
         }
     }

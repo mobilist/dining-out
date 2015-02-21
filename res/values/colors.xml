@@ -10,6 +10,6 @@
     <color name="spb_default_color">@color/highlight</color>
     <!-- Transparency matches drawables. -->
     <color name="cell_secondary">#ccffffff</color>
+    <color name="placeholder_text">#30e5e5e5</color>
     <color name="attributions">#999999</color>
-    <color name="sv_background">#33000000</color>
 </resources>

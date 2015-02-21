@@ -43,6 +43,7 @@ public class InitService extends IntentService {
      * ContentValues ArrayList of restaurants to insert and update.
      */
     public static final String EXTRA_RESTAURANTS = "intent.extra.RESTAURANTS";
+
     /**
      * long array of contacts to follow.
      */
@@ -82,8 +83,8 @@ public class InitService extends IntentService {
             for (int i = 0; i < restaurantIds.length; i++) { // update details, insert reviews
                 if (restaurantIds[i] > 0) {
                     try {
-                        Pair<Place, Long> details = RestaurantService.details(restaurantIds[i],
-                                restaurants.get(i));
+                        Pair<Place, Long> details =
+                                RestaurantService.details(restaurantIds[i], restaurants.get(i));
                         places[i] = details.first;
                         photoIds[i] = details.second;
                     } catch (IOException e) {

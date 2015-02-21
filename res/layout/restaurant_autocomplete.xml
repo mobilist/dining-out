@@ -20,8 +20,8 @@
         android:layout_marginLeft="@dimen/padding"
         android:layout_weight="1"
         android:hint="@string/autocomplete_hint"
-        android:imeOptions="actionDone"
-        android:inputType="textCapWords|textMultiLine|textShortMessage"
+        android:imeOptions="actionSearch"
+        android:inputType="textCapWords|textMultiLine"
         sprockets:radius="@integer/search_radius"
         sprockets:types="@string/autocomplete_types"/>
 

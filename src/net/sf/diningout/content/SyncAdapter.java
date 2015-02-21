@@ -29,7 +29,6 @@ import android.content.SharedPreferences;
 import android.content.SyncResult;
 import android.database.CursorJoiner;
 import android.database.CursorJoiner.Result;
-import android.graphics.Bitmap;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.RemoteException;
@@ -38,57 +37,46 @@ import android.provider.ContactsContract;
 import android.provider.ContactsContract.CommonDataKinds.Email;
 import android.provider.ContactsContract.RawContacts;
 import android.support.v4.content.LocalBroadcastManager;
-import android.text.Html;
 import android.text.TextUtils;
 import android.util.Log;
-import android.util.Pair;
 
 import com.google.android.gms.gcm.GoogleCloudMessaging;
 import com.google.common.hash.Hashing;
 import com.google.common.io.BaseEncoding;
-import com.squareup.picasso.Picasso;
 
-import net.sf.diningout.R;
 import net.sf.diningout.accounts.Accounts;
 import net.sf.diningout.app.FriendColorService;
 import net.sf.diningout.app.Notifications;
 import net.sf.diningout.app.RestaurantService;
 import net.sf.diningout.app.ReviewsService;
-import net.sf.diningout.app.SyncsReadService;
-import net.sf.diningout.app.ui.FriendsActivity;
-import net.sf.diningout.app.ui.NotificationsActivity;
-import net.sf.diningout.app.ui.RestaurantActivity;
 import net.sf.diningout.data.Init;
 import net.sf.diningout.data.Restaurant;
 import net.sf.diningout.data.Review;
 import net.sf.diningout.data.Sync;
-import net.sf.diningout.data.Sync.Type;
 import net.sf.diningout.data.Synced;
 import net.sf.diningout.data.Syncing;
 import net.sf.diningout.data.User;
 import net.sf.diningout.net.Server;
+import net.sf.diningout.net.Token;
 import net.sf.diningout.provider.Contract.Columns;
 import net.sf.diningout.provider.Contract.Contacts;
-import net.sf.diningout.provider.Contract.RestaurantPhotos;
 import net.sf.diningout.provider.Contract.Restaurants;
 import net.sf.diningout.provider.Contract.ReviewDrafts;
 import net.sf.diningout.provider.Contract.ReviewDraftsJoinRestaurants;
 import net.sf.diningout.provider.Contract.Reviews;
-import net.sf.diningout.provider.Contract.ReviewsJoinAll;
-import net.sf.diningout.provider.Contract.ReviewsJoinContacts;
 import net.sf.diningout.provider.Contract.ReviewsJoinRestaurants;
 import net.sf.diningout.provider.Contract.Syncs;
-import net.sf.sprockets.content.Managers;
 import net.sf.sprockets.database.Cursors;
 import net.sf.sprockets.database.EasyCursor;
+import net.sf.sprockets.gms.gcm.Gcm;
 import net.sf.sprockets.net.Uris;
 import net.sf.sprockets.preference.Prefs;
 import net.sf.sprockets.util.StringArrays;
 
 import java.io.IOException;
-import java.util.Collection;
-import java.util.LinkedHashSet;
 import java.util.List;
+
+import retrofit.RetrofitError;
 
 import static android.content.ContentResolver.SYNC_EXTRAS_INITIALIZE;
 import static android.content.ContentResolver.SYNC_EXTRAS_MANUAL;
@@ -97,12 +85,12 @@ import static android.provider.BaseColumns._ID;
 import static android.text.format.DateUtils.DAY_IN_MILLIS;
 import static com.google.common.base.Charsets.UTF_8;
 import static java.util.Locale.ENGLISH;
-import static net.sf.diningout.app.Notifications.ID_SYNC;
 import static net.sf.diningout.data.Review.Type.PRIVATE;
 import static net.sf.diningout.data.Status.ACTIVE;
 import static net.sf.diningout.data.Status.DELETED;
 import static net.sf.diningout.data.Sync.Action.INSERT;
 import static net.sf.diningout.data.Sync.Action.UPDATE;
+import static net.sf.diningout.net.Server.BACKOFF_RETRIES;
 import static net.sf.diningout.preference.Keys.ACCOUNT_INITIALISED;
 import static net.sf.diningout.preference.Keys.CLOUD_ID;
 import static net.sf.diningout.preference.Keys.INSTALL_ID;
@@ -119,20 +107,17 @@ import static net.sf.diningout.provider.Contract.CALL_UPDATE_RESTAURANT_RATING;
 import static net.sf.diningout.provider.Contract.EXTRA_HAS_RESTAURANTS;
 import static net.sf.diningout.provider.Contract.SYNC_EXTRAS_CONTACTS_ONLY;
 import static net.sf.sprockets.app.SprocketsApplication.cr;
-import static net.sf.sprockets.app.SprocketsApplication.res;
 import static net.sf.sprockets.content.Content.SYNC_EXTRAS_DOWNLOAD;
-import static net.sf.sprockets.database.sqlite.SQLite.alias;
-import static net.sf.sprockets.database.sqlite.SQLite.alias_;
-import static net.sf.sprockets.database.sqlite.SQLite.aliased_;
-import static net.sf.sprockets.database.sqlite.SQLite.millis;
 import static net.sf.sprockets.gms.analytics.Trackers.event;
 import static net.sf.sprockets.gms.analytics.Trackers.exception;
+import static net.sf.sprockets.sql.SQLite.alias;
 
 /**
  * Synchronises the content provider with the server.
  */
 public class SyncAdapter extends AbstractThreadedSyncAdapter {
     private static final String TAG = SyncAdapter.class.getSimpleName();
+    private static final String PROJECT_ID = "77419503291"; // from Google Developers Console
     /**
      * Contacts content URI specifying that the caller is a sync adapter.
      */
@@ -203,16 +188,22 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter {
                 download(provider);
                 prefs.edit().putLong(LAST_SYNC, now).apply();
                 if (prefs.getBoolean(SHOW_SYNC_NOTIFICATIONS, false)) {
-                    notify(context, provider);
+                    Notifications.sync(context);
                 }
             }
-            if (!prefs.contains(CLOUD_ID)) {
+            if (!prefs.contains(CLOUD_ID)) { // get GCM registration ID and user notification key
                 String id = uploadCloudId(context);
                 if (!TextUtils.isEmpty(id)) {
                     prefs.edit().putString(CLOUD_ID, id).apply();
+                    // todo service isn't working yet
+                    // String key = getCloudNotificationKey(context, selected, id);
+                    // if (!TextUtils.isEmpty(key)) {
+                    //     prefs.edit().putString(CLOUD_NOTIFICATION_KEY, key).apply();
+                    // }
                 }
             }
         } catch (RemoteException e) {
+            result.databaseError = true;
             Log.e(TAG, "syncing the ContentProvider", e);
             exception(e);
         }
@@ -349,10 +340,9 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter {
      * Upload restaurant changes to the server.
      */
     private void uploadRestaurants(ContentProviderClient cp) throws RemoteException {
-        String[] proj = {_ID, Restaurants.GLOBAL_ID, Restaurants.GOOGLE_ID,
-                Restaurants.GOOGLE_REFERENCE, Restaurants.NAME, Restaurants.ADDRESS,
-                Restaurants.INTL_PHONE, Restaurants.URL, Restaurants.NOTES, Restaurants.STATUS_ID,
-                Restaurants.DIRTY, Restaurants.VERSION};
+        String[] proj = {_ID, Restaurants.GLOBAL_ID, Restaurants.PLACE_ID, Restaurants.NAME,
+                Restaurants.ADDRESS, Restaurants.INTL_PHONE, Restaurants.URL, Restaurants.NOTES,
+                Restaurants.STATUS_ID, Restaurants.DIRTY, Restaurants.VERSION};
         String sel = Restaurants.DIRTY + " = 1";
         List<Restaurant> restaurants = Restaurants.from(cp.query(RESTAURANTS_URI, proj, sel, null,
                 null));
@@ -589,163 +579,14 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter {
     }
 
     /**
-     * Post a system notification for any unread server changes.
-     */
-    private void notify(Context context, ContentProviderClient cp) throws RemoteException {
-        String[] proj = {Syncs.TYPE_ID, Syncs.OBJECT_ID, millis(Syncs.ACTION_ON)};
-        String sel = Syncs.STATUS_ID + " = ?";
-        String[] args = {String.valueOf(ACTIVE.id)};
-        String order = Syncs.ACTION_ON + " DESC";
-        EasyCursor c = new EasyCursor(cp.query(SYNCS_URI, proj, sel, args, order));
-        if (c.getCount() > 0) {
-            int users = 0;
-            int reviews = 0;
-            long restaurantId = 0L; // of review
-            Collection<CharSequence> lines = new LinkedHashSet<>(); // no dupes
-            long when = 0L;
-            Bitmap icon = null;
-            int w = android.R.dimen.notification_large_icon_width;
-            int h = android.R.dimen.notification_large_icon_height;
-            /* get the change details */
-            while (c.moveToNext()) {
-                Uri photo = null;
-                switch (Type.get(c.getInt(Syncs.TYPE_ID))) {
-                    case USER:
-                        photo = notifyUser(context, cp, c.getLong(Syncs.OBJECT_ID), lines, icon);
-                        if (photo != null) {
-                            users++;
-                        }
-                        break;
-                    case REVIEW:
-                        Pair<Uri, Long> pair = notifyReview(context, cp, c.getLong(Syncs.OBJECT_ID),
-                                lines, icon);
-                        photo = pair.first;
-                        if (photo != null) {
-                            reviews++;
-                            restaurantId = pair.second;
-                        }
-                        break;
-                }
-                if (when == 0) {
-                    when = c.getLong(Syncs.ACTION_ON);
-                }
-                if (photo != null && photo != Uri.EMPTY) {
-                    try {
-                        icon = Picasso.with(context).load(photo).resizeDimen(w, h).centerCrop()
-                                .get();
-                    } catch (IOException e) { // contact or own restaurant may not have photo
-                        Log.w(TAG, "loading contact or restaurant photo", e);
-                    }
-                }
-            }
-            /* build the title */
-            StringBuilder title = new StringBuilder(32);
-            if (users > 0) {
-                title.append(res().getQuantityString(R.plurals.n_new_friends, users, users));
-            }
-            if (reviews > 0) {
-                if (title.length() > 0) {
-                    title.append(context.getString(R.string.delimiter));
-                }
-                title.append(res().getQuantityString(R.plurals.n_new_reviews, reviews, reviews));
-            }
-            if (title.length() > 0) { // figure out where to go
-                Intent activity;
-                if (users > 0 && reviews == 0) {
-                    activity = new Intent(context, FriendsActivity.class);
-                } else if (users == 0 && reviews == 1) {
-                    activity = new Intent(context, RestaurantActivity.class)
-                            .putExtra(RestaurantActivity.EXTRA_ID, restaurantId);
-                } else {
-                    activity = new Intent(context, NotificationsActivity.class);
-                }
-                int items = users + reviews;
-                Notifications.inboxStyle(ID_SYNC, title, lines, when, icon, items, activity);
-                event("notification", "notify", "items", items);
-            } else { // sync object was deleted
-                Managers.notification(context).cancel(ID_SYNC);
-                context.startService(new Intent(context, SyncsReadService.class));
-            }
-        }
-        c.close();
-    }
-
-    /**
-     * Add a message to the list about the user.
-     *
-     * @return photo if available, {@link Uri#EMPTY} if not needed, or null if the user wasn't found
-     */
-    private Uri notifyUser(Context context, ContentProviderClient cp, long id,
-                           Collection<CharSequence> lines, Bitmap icon) throws RemoteException {
-        Uri photo = null;
-        String[] proj = {Contacts.ANDROID_LOOKUP_KEY, Contacts.ANDROID_ID, Contacts.NAME};
-        String sel = Contacts.STATUS_ID + " = ?";
-        String[] args = {String.valueOf(ACTIVE.id)};
-        EasyCursor c = new EasyCursor(cp.query(ContentUris.withAppendedId(CONTACTS_URI, id), proj,
-                sel, args, null));
-        if (c.moveToFirst()) {
-            String name = c.getString(Contacts.NAME);
-            if (name == null) {
-                name = context.getString(R.string.non_contact);
-            }
-            lines.add(Html.fromHtml(
-                    context.getString(R.string.new_friend, TextUtils.htmlEncode(name))));
-            photo = Uri.EMPTY;
-            if (icon == null) {
-                String androidKey = c.getString(Contacts.ANDROID_LOOKUP_KEY);
-                long androidId = c.getLong(Contacts.ANDROID_ID);
-                if (androidKey != null && androidId > 0) {
-                    photo = ContactsContract.Contacts.getLookupUri(androidId, androidKey);
-                }
-            }
-        }
-        c.close();
-        return photo;
-    }
-
-    /**
-     * Add a message to the list about the review.
-     *
-     * @return photo if available, {@link Uri#EMPTY} if not needed, or null if the review wasn't
-     * found, and the ID of the restaurant the review is for or 0 if the review wasn't found
-     */
-    private Pair<Uri, Long> notifyReview(Context context, ContentProviderClient cp, long id,
-                                         Collection<CharSequence> lines,
-                                         Bitmap icon) throws RemoteException {
-        Uri photo = null;
-        long restaurantId = 0L;
-        String[] proj = {Reviews.RESTAURANT_ID, alias_(ReviewsJoinRestaurants.RESTAURANT_NAME),
-                alias_(ReviewsJoinContacts.CONTACT_NAME)};
-        String sel = Reviews.TYPE_ID + " = ? AND " + ReviewsJoinRestaurants.REVIEW_STATUS_ID
-                + " = ? AND " + ReviewsJoinRestaurants.RESTAURANT_STATUS_ID + " = ?";
-        String[] args = StringArrays.from(PRIVATE.id, ACTIVE.id, ACTIVE.id);
-        EasyCursor c = new EasyCursor(cp.query(
-                ContentUris.withAppendedId(ReviewsJoinAll.CONTENT_URI, id), proj, sel, args, null));
-        if (c.moveToFirst()) {
-            String contact = c.getString(aliased_(ReviewsJoinContacts.CONTACT_NAME));
-            if (contact == null) {
-                contact = context.getString(R.string.non_contact);
-            }
-            lines.add(context.getString(R.string.new_review, contact,
-                    c.getString(aliased_(ReviewsJoinRestaurants.RESTAURANT_NAME))));
-            restaurantId = c.getLong(Reviews.RESTAURANT_ID);
-            photo = icon == null ? RestaurantPhotos.uriForRestaurant(restaurantId) : Uri.EMPTY;
-        }
-        c.close();
-        return Pair.create(photo, restaurantId);
-    }
-
-    /**
      * Get the device's cloud ID and upload it to the server.
      *
      * @return null if the cloud ID could not be retrieved or sent to the server successfully
      */
     private String uploadCloudId(Context context) {
-        int retries = res().getInteger(R.integer.backoff_retries);
-        String projectNumber = res().getString(R.string.project_number);
-        for (int i = 0; i < retries; i++) {
+        for (int i = 0; i < BACKOFF_RETRIES; i++) {
             try {
-                String id = GoogleCloudMessaging.getInstance(context).register(projectNumber);
+                String id = GoogleCloudMessaging.getInstance(context).register(PROJECT_ID);
                 Boolean synced = Server.syncCloudId(id);
                 if (synced != null) {
                     return synced ? id : null;
@@ -754,11 +595,31 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter {
                 Log.e(TAG, "registering with GCM", e);
                 exception(e);
             }
-            if (i + 1 < retries) {
-                SystemClock.sleep((1 << i) * 1000); // wait and retry, apparently register can error
+            if (i + 1 < BACKOFF_RETRIES) {
+                SystemClock.sleep((1 << i) * 1000); // wait and retry, register can error
                 event("gcm", "register retry", i + 1);
             } else {
-                event("gcm", "couldn't register after retries", retries);
+                event("gcm", "couldn't register after retries", BACKOFF_RETRIES);
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Get the user's cloud notification key.
+     *
+     * @return null if the notification key could not be retrieved
+     */
+    private String getCloudNotificationKey(Context context, Account account, String cloudId) {
+        if (Token.isAvailable()) {
+            try {
+                String name = context.getPackageName() + ':' + account.name;
+                String key = Gcm.getNotificationKey(PROJECT_ID, Token.get(), name, cloudId);
+                Log.v(null, "key:" + key); // todo return directly from func
+                return key;
+            } catch (RetrofitError e) {
+                Log.e(TAG, "getting GCM notification key", e);
+                exception(e);
             }
         }
         return null;

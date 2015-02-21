@@ -1,5 +1,5 @@
 /*
- * Copyright 2013 pushbit <pushbit@gmail.com>
+ * Copyright 2013-2015 pushbit <pushbit@gmail.com>
  * 
  * This file is part of Dining Out.
  * 
@@ -24,6 +24,7 @@ import net.sf.diningout.R;
 import net.sf.diningout.app.ui.FriendsFragment.Listener;
 
 import butterknife.InjectView;
+import butterknife.Optional;
 
 import static android.view.Gravity.START;
 
@@ -31,6 +32,7 @@ import static android.view.Gravity.START;
  * Displays contacts to follow and invite to join.
  */
 public class FriendsActivity extends BaseNavigationDrawerActivity implements Listener {
+    @Optional
     @InjectView(R.id.root)
     DrawerLayout mDrawerLayout;
 
@@ -38,12 +40,14 @@ public class FriendsActivity extends BaseNavigationDrawerActivity implements Lis
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.friends_activity);
-        setDrawerLayout(mDrawerLayout);
+        if (mDrawerLayout != null) {
+            setDrawerLayout(mDrawerLayout);
+        }
     }
 
     @Override
     public boolean onFriendsOptionsMenu() {
-        return !mDrawerLayout.isDrawerOpen(START);
+        return mDrawerLayout == null || !mDrawerLayout.isDrawerOpen(START);
     }
 
     @Override

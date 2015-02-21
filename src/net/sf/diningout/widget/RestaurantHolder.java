@@ -28,6 +28,7 @@ import com.squareup.picasso.RequestCreator;
 
 import net.sf.diningout.R;
 import net.sf.diningout.picasso.Placeholders;
+import net.sf.diningout.preference.Keys;
 import net.sf.diningout.provider.Contract.Columns;
 import net.sf.sprockets.database.EasyCursor;
 import net.sf.sprockets.view.ViewHolder;
@@ -39,7 +40,8 @@ import static android.text.format.DateUtils.FORMAT_ABBREV_ALL;
 import static android.text.format.DateUtils.MINUTE_IN_MILLIS;
 import static android.view.View.GONE;
 import static android.view.View.VISIBLE;
-import static net.sf.diningout.picasso.Transformations.DOWN;
+import static net.sf.diningout.picasso.Transformations.BL;
+import static net.sf.sprockets.util.MeasureUnit.MILE;
 
 /**
  * Views for a restaurant in a list and methods to update their contents.
@@ -76,8 +78,8 @@ public class RestaurantHolder extends ViewHolder {
     }
 
     private void photo(RequestCreator req, GridCard card, EasyCursor c) {
-        req.resize(card.getWidth(), card.getHeight()).centerCrop().transform(DOWN)
-                .placeholder(Placeholders.get(c)).into(photo);
+        req.resize(card.getWidth(), card.getHeight()).centerCrop().transform(BL)
+                .placeholder(Placeholders.rect(c)).into(photo);
     }
 
     /**
@@ -127,7 +129,8 @@ public class RestaurantHolder extends ViewHolder {
      */
     RestaurantHolder distance(double distance) {
         if (distance >= 0.0) {
-            detail.setText(context().getString(R.string.distance_km, distance));
+            detail.setText(context().getString(Keys.isDistanceUnit(MILE) ? R.string.distance_mi
+                    : R.string.distance_km, distance));
             detail.setCompoundDrawablesWithIntrinsicBounds(
                     R.drawable.ic_action_location_found_small, 0, 0, 0);
             detail.setVisibility(VISIBLE);

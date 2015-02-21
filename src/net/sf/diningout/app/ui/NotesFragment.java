@@ -106,12 +106,14 @@ public class NotesFragment extends TabListFragment implements LoaderCallbacks<Ea
         }
     }
 
-    /**
-     * Get the ViewHolder of the header View for editing notes.
-     */
-    private NotesHolder getNotes() {
-        ListView view = getListView();
-        return ViewHolder.get(view.getAdapter().getView(1, null, view));
+    @Override
+    void setRestaurant(long id) {
+        saveNotes();
+        mRestaurantId = id;
+        mNotes = null;
+        mStoredNotes = null;
+        getNotes().mNotes.setText(null);
+        getLoaderManager().restartLoader(0, null, this);
     }
 
     @Override
@@ -122,15 +124,27 @@ public class NotesFragment extends TabListFragment implements LoaderCallbacks<Ea
     public void onPause() {
         super.onPause();
         if (!a.isChangingConfigurations()) {
-            String notes = getNotes().mNotes.getText().toString();
-            if (!notes.equals(Strings.nullToEmpty(mStoredNotes))) { // save if changed
-                ContentValues vals = new ContentValues(2);
-                vals.put(Restaurants.NOTES, notes);
-                vals.put(Restaurants.DIRTY, 1);
-                cr().update(ContentUris.withAppendedId(Restaurants.CONTENT_URI, mRestaurantId),
-                        vals, null, null);
-                mStoredNotes = notes;
-            }
+            saveNotes();
+        }
+    }
+
+    /**
+     * Get the ViewHolder of the header View for editing notes.
+     */
+    private NotesHolder getNotes() {
+        ListView view = getListView();
+        return ViewHolder.get(view.getAdapter().getView(1, null, view));
+    }
+
+    private void saveNotes() {
+        String notes = getNotes().mNotes.getText().toString();
+        if (!notes.equals(Strings.nullToEmpty(mStoredNotes))) {
+            ContentValues vals = new ContentValues(2);
+            vals.put(Restaurants.NOTES, notes);
+            vals.put(Restaurants.DIRTY, 1);
+            cr().update(ContentUris.withAppendedId(Restaurants.CONTENT_URI, mRestaurantId),
+                    vals, null, null);
+            mStoredNotes = notes;
         }
     }
 

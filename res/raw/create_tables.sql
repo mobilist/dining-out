@@ -4,6 +4,7 @@ CREATE TABLE status (
 );
 INSERT INTO status (name) VALUES ('active'), ('inactive'), ('deleted'), ('merged');
 
+
 CREATE TABLE contact (
     _id INTEGER PRIMARY KEY AUTOINCREMENT,
     global_id INTEGER UNIQUE,
@@ -32,12 +33,14 @@ BEGIN
     UPDATE contact SET updated_on = CURRENT_TIMESTAMP WHERE _id = OLD._id;--
 END;
 
+
 CREATE TABLE restaurant (
     _id INTEGER PRIMARY KEY AUTOINCREMENT,
     global_id INTEGER UNIQUE,
-    google_id TEXT UNIQUE,
-    google_reference TEXT,
-    google_url TEXT,
+    place_id TEXT UNIQUE,
+    google_id TEXT UNIQUE, -- deprecated
+    google_reference TEXT, -- deprecated
+    google_url TEXT, -- should rename to place_url when recreating db
     name TEXT NOT NULL COLLATE LOCALIZED,
     normalised_name TEXT NOT NULL COLLATE LOCALIZED,
     address TEXT COLLATE LOCALIZED,
@@ -72,6 +75,7 @@ BEGIN
     UPDATE restaurant SET updated_on = CURRENT_TIMESTAMP WHERE _id = OLD._id;--
 END;
 
+
 CREATE TABLE restaurant_photo (
     _id INTEGER PRIMARY KEY AUTOINCREMENT,
     restaurant_id INTEGER NOT NULL,
@@ -89,11 +93,13 @@ BEGIN
     UPDATE restaurant_photo SET updated_on = CURRENT_TIMESTAMP WHERE _id = OLD._id;--
 END;
 
+
 CREATE TABLE review_type (
     _id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL
 );
 INSERT INTO review_type (name) VALUES ('private'), ('google');
+
 
 CREATE TABLE review (
     _id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -111,7 +117,7 @@ CREATE TABLE review (
     inserted_on TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_on TEXT
 );
-CREATE INDEX review_restaurant_id_type_id ON review (restaurant_id, type_id);
+CREATE INDEX review_restaurant_id ON review (restaurant_id, type_id, written_on);
 CREATE INDEX review_dirty ON review (dirty);
 
 CREATE TRIGGER review_version AFTER UPDATE OF dirty ON review WHEN NEW.dirty = 1
@@ -123,6 +129,7 @@ CREATE TRIGGER review_updated AFTER UPDATE ON review
 BEGIN
     UPDATE review SET updated_on = CURRENT_TIMESTAMP WHERE _id = OLD._id;--
 END;
+
 
 CREATE TABLE review_draft (
     restaurant_id INTEGER PRIMARY KEY,
@@ -147,6 +154,7 @@ BEGIN
     WHERE restaurant_id = OLD.restaurant_id;--
 END;
 
+
 CREATE TABLE object_type (
     _id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL
@@ -154,11 +162,13 @@ CREATE TABLE object_type (
 INSERT INTO object_type (name)
 VALUES ('user'), ('restaurant'), ('visit'), ('review'), ('restaurant photo'), ('review draft');
 
+
 CREATE TABLE object_action (
     _id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL
 );
 INSERT INTO object_action (name) VALUES ('insert'), ('update'), ('delete'), ('merge');
+
 
 -- remote changes that the user should be notified about
 CREATE TABLE sync (

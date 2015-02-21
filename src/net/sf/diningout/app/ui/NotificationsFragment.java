@@ -43,6 +43,7 @@ import com.squareup.picasso.Picasso;
 
 import net.sf.diningout.R;
 import net.sf.diningout.data.Sync.Type;
+import net.sf.diningout.picasso.Placeholders;
 import net.sf.diningout.provider.Contract.Columns;
 import net.sf.diningout.provider.Contract.Contacts;
 import net.sf.diningout.provider.Contract.RestaurantPhotos;
@@ -51,7 +52,6 @@ import net.sf.diningout.provider.Contract.SyncsJoinAll;
 import net.sf.sprockets.app.ui.SprocketsFragment;
 import net.sf.sprockets.content.EasyCursorLoader;
 import net.sf.sprockets.database.EasyCursor;
-import net.sf.sprockets.database.sqlite.SQLite;
 import net.sf.sprockets.util.StringArrays;
 import net.sf.sprockets.view.ViewHolder;
 import net.sf.sprockets.widget.GridCard;
@@ -67,10 +67,10 @@ import static android.text.format.DateUtils.MINUTE_IN_MILLIS;
 import static net.sf.diningout.data.Status.ACTIVE;
 import static net.sf.diningout.data.Sync.Type.REVIEW;
 import static net.sf.diningout.data.Sync.Type.USER;
-import static net.sf.diningout.picasso.Placeholders.get;
-import static net.sf.diningout.picasso.Transformations.DOWN;
-import static net.sf.sprockets.database.sqlite.SQLite.alias_;
-import static net.sf.sprockets.database.sqlite.SQLite.aliased_;
+import static net.sf.diningout.picasso.Transformations.BR;
+import static net.sf.sprockets.sql.SQLite.alias_;
+import static net.sf.sprockets.sql.SQLite.aliased_;
+import static net.sf.sprockets.sql.SQLite.millis;
 
 /**
  * Displays a list of notifications. Activities that attach this must implement {@link Listener}.
@@ -108,7 +108,7 @@ public class NotificationsFragment extends SprocketsFragment implements LoaderCa
     @Override
     public Loader<EasyCursor> onCreateLoader(int id, Bundle args) {
         String[] proj = {SyncsJoinAll.SYNC__ID, alias_(SyncsJoinAll.SYNC_TYPE_ID),
-                SQLite.millis(Syncs.ACTION_ON), alias_(SyncsJoinAll.RESTAURANT__ID),
+                millis(Syncs.ACTION_ON), alias_(SyncsJoinAll.RESTAURANT__ID),
                 alias_(SyncsJoinAll.RESTAURANT_NAME), alias_(SyncsJoinAll.CONTACT__ID),
                 Contacts.ANDROID_LOOKUP_KEY, Contacts.ANDROID_ID, alias_(SyncsJoinAll.CONTACT_NAME),
                 "coalesce(" + SyncsJoinAll.RESTAURANT_COLOR + "," + SyncsJoinAll.CONTACT_COLOR
@@ -222,7 +222,8 @@ public class NotificationsFragment extends SprocketsFragment implements LoaderCa
                     break;
             }
             Picasso.with(context).load(photo).resize(mCard.getWidth(), mCard.getHeight())
-                    .centerCrop().transform(DOWN).placeholder(get(c)).into(notif.mPhoto);
+                    .centerCrop().transform(BR).placeholder(Placeholders.rect(c))
+                    .into(notif.mPhoto);
             notif.mAction.setText(action);
             long now = System.currentTimeMillis();
             long when = c.getLong(Syncs.ACTION_ON);

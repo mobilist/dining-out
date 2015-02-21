@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2014 pushbit <pushbit@gmail.com>
+ * Copyright 2013-2015 pushbit <pushbit@gmail.com>
  * 
  * This file is part of Dining Out.
  * 
@@ -17,15 +17,10 @@
 
 package net.sf.diningout.net;
 
-import android.os.SystemClock;
-import android.text.TextUtils;
 import android.util.Log;
 
-import com.google.android.gms.auth.GoogleAuthException;
-import com.google.android.gms.auth.GoogleAuthUtil;
 import com.squareup.okhttp.OkHttpClient;
 
-import net.sf.diningout.R;
 import net.sf.diningout.data.Init;
 import net.sf.diningout.data.Restaurant;
 import net.sf.diningout.data.Review;
@@ -52,23 +47,18 @@ import retrofit.http.Body;
 import retrofit.http.GET;
 import retrofit.http.POST;
 
-import static net.sf.diningout.preference.Keys.ACCOUNT_NAME;
+import static net.sf.diningout.BuildConfig.SERVER_URL;
 import static net.sf.diningout.preference.Keys.INSTALL_ID;
 import static net.sf.sprockets.app.SprocketsApplication.context;
-import static net.sf.sprockets.app.SprocketsApplication.res;
-import static net.sf.sprockets.gms.analytics.Trackers.event;
 import static net.sf.sprockets.gms.analytics.Trackers.exception;
 
 /**
  * Methods for communicating with the server.
  */
 public class Server {
+    public static final int BACKOFF_RETRIES = 5;
     private static final String TAG = Server.class.getSimpleName();
     private static final Api API;
-    /**
-     * Current auth token.
-     */
-    private static String sToken;
 
     static {
         try { // require the known server certificate when connecting
@@ -82,7 +72,7 @@ public class Server {
             ssl.init(null, trust.getTrustManagers(), new SecureRandom());
             Client client = new OkClient(
                     new OkHttpClient().setSslSocketFactory(ssl.getSocketFactory()));
-            API = new Builder().setClient(client).setEndpoint(res().getString(R.string.server_url))
+            API = new Builder().setClient(client).setEndpoint(SERVER_URL)
                     .setRequestInterceptor(new Interceptor()).build().create(Api.class);
         } catch (GeneralSecurityException | IOException e) {
             throw new RuntimeException("loading server certificate", e);
@@ -98,7 +88,7 @@ public class Server {
      * @return null if there was a problem communicating with the server
      */
     public static Init init() {
-        if (haveToken()) {
+        if (Token.isAvailable()) {
             try {
                 return API.init();
             } catch (RetrofitError e) {
@@ -115,7 +105,7 @@ public class Server {
      * server
      */
     public static Restaurant restaurant(Restaurant restaurant) {
-        if (haveToken()) {
+        if (Token.isAvailable()) {
             try {
                 return API.restaurant(restaurant);
             } catch (RetrofitError e) {
@@ -132,7 +122,7 @@ public class Server {
      * there was a problem communicating with the server
      */
     public static List<Review> reviews(Restaurant restaurant) {
-        if (haveToken()) {
+        if (Token.isAvailable()) {
             try {
                 return API.reviews(restaurant);
             } catch (RetrofitError e) {
@@ -149,7 +139,7 @@ public class Server {
      * with the server
      */
     public static List<Review> reviews(User user) {
-        if (haveToken()) {
+        if (Token.isAvailable()) {
             try {
                 return API.reviews(user);
             } catch (RetrofitError e) {
@@ -165,7 +155,7 @@ public class Server {
      * @return null if there was a problem communicating with the server
      */
     public static List<User> syncContacts(List<User> users) {
-        if (haveToken()) {
+        if (Token.isAvailable()) {
             try {
                 return API.syncContacts(users);
             } catch (RetrofitError e) {
@@ -181,7 +171,7 @@ public class Server {
      * @return null if there was a problem communicating with the server
      */
     public static List<Restaurant> syncRestaurants(List<Restaurant> restaurants) {
-        if (haveToken()) {
+        if (Token.isAvailable()) {
             try {
                 return API.syncRestaurants(restaurants);
             } catch (RetrofitError e) {
@@ -197,7 +187,7 @@ public class Server {
      * @return null if there was a problem communicating with the server
      */
     public static List<Review> syncReviews(List<Review> reviews) {
-        if (haveToken()) {
+        if (Token.isAvailable()) {
             try {
                 return API.syncReviews(reviews);
             } catch (RetrofitError e) {
@@ -213,7 +203,7 @@ public class Server {
      * @return null if there was a problem communicating with the server
      */
     public static List<Review> syncReviewDrafts(List<Review> drafts) {
-        if (haveToken()) {
+        if (Token.isAvailable()) {
             try {
                 return API.syncReviewDrafts(drafts);
             } catch (RetrofitError e) {
@@ -229,7 +219,7 @@ public class Server {
      * @return null if there was a problem communicating with the server
      */
     public static Syncing sync() {
-        if (haveToken()) {
+        if (Token.isAvailable()) {
             try {
                 return API.sync();
             } catch (RetrofitError e) {
@@ -245,7 +235,7 @@ public class Server {
      * @return true if successful or null if there was a problem communicating with the server
      */
     public static Boolean syncCloudId(String id) {
-        if (haveToken()) {
+        if (Token.isAvailable()) {
             try {
                 return API.syncCloudId(id);
             } catch (RetrofitError e) {
@@ -253,37 +243,6 @@ public class Server {
             }
         }
         return null;
-    }
-
-    /**
-     * True if we have the current auth token, false otherwise.
-     */
-    private static boolean haveToken() {
-        String account = Prefs.getString(context(), ACCOUNT_NAME);
-        if (!TextUtils.isEmpty(account)) {
-            int retries = res().getInteger(R.integer.backoff_retries);
-            for (int i = 0; i < retries; i++) {
-                try {
-                    sToken = GoogleAuthUtil.getTokenWithNotification(context(), account,
-                            res().getString(R.string.auth_scope), null);
-                    return true;
-                } catch (GoogleAuthException e) {
-                    Log.e(TAG, "getting auth token", e);
-                    exception(e);
-                    return false; // user needs to fix authentication, don't retry
-                } catch (IOException e) {
-                    Log.e(TAG, "getting auth token", e);
-                    exception(e);
-                }
-                if (i + 1 < retries) {
-                    SystemClock.sleep((1 << i) * 1000); // wait and retry, occasional network error
-                    event("gms", "auth token retry", i + 1);
-                } else {
-                    event("gms", "no auth token after retries", retries);
-                }
-            }
-        }
-        return false;
     }
 
     /**
@@ -335,7 +294,7 @@ public class Server {
     private static class Interceptor implements RequestInterceptor {
         @Override
         public void intercept(RequestFacade request) {
-            request.addHeader("Authorization", sToken);
+            request.addHeader("Authorization", Token.get());
             request.addHeader("Install-ID", String.valueOf(Prefs.getLong(context(), INSTALL_ID)));
         }
     }

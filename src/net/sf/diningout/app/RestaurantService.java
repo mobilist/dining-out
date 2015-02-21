@@ -96,26 +96,24 @@ public class RestaurantService extends IntentService {
     public static void download(long id) {
         ContentResolver cr = cr();
         Uri uri = ContentUris.withAppendedId(Restaurants.CONTENT_URI, id);
-        String[] proj = {Restaurants.GLOBAL_ID, Restaurants.GOOGLE_ID,
-                Restaurants.GOOGLE_REFERENCE};
+        String[] proj = {Restaurants.GLOBAL_ID, Restaurants.PLACE_ID};
         EasyCursor c = new EasyCursor(cr.query(uri, proj, null, null, null));
         Restaurant restaurant = new Restaurant();
         restaurant.localId = id;
         if (c.moveToFirst()) {
             restaurant.globalId = c.getLong(Restaurants.GLOBAL_ID);
-            restaurant.googleId = c.getString(Restaurants.GOOGLE_ID);
-            restaurant.googleReference = c.getString(Restaurants.GOOGLE_REFERENCE);
+            restaurant.placeId = c.getString(Restaurants.PLACE_ID);
         }
         c.close();
-        /* try to get Google reference from server if don't already have */
-        if (restaurant.globalId > 0 && TextUtils.isEmpty(restaurant.googleReference)) {
+        /* try to get place ID from server if don't already have */
+        if (restaurant.globalId > 0 && TextUtils.isEmpty(restaurant.placeId)) {
             restaurant = Server.restaurant(restaurant);
         }
         /* get Google details, reviews, and photos if available */
-        if (restaurant != null && !TextUtils.isEmpty(restaurant.googleReference)) {
+        if (restaurant != null && !TextUtils.isEmpty(restaurant.placeId)) {
             try {
-                ContentValues vals = new ContentValues(15);
-                vals.put(Restaurants.GOOGLE_REFERENCE, restaurant.googleReference);
+                ContentValues vals = new ContentValues(14);
+                vals.put(Restaurants.PLACE_ID, restaurant.placeId);
                 Pair<Place, Long> details = details(id, vals);
                 if (details.first != null) {
                     photo(details.second, id, details.first);
@@ -161,43 +159,44 @@ public class RestaurantService extends IntentService {
     }
 
     /**
-     * Update the Google restaurant's details, insert reviews and photos.
+     * Update the Google restaurant's details, reviews, and photos.
      *
-     * @param vals should have a size of 15 or greater and must include
-     *             {@link Restaurants#GOOGLE_REFERENCE}
+     * @param vals should have a size of 14 or greater and must include
+     *             {@link Restaurants#PLACE_ID PLACE_ID}
      * @return {@link Places#details(Params, Field...) details} response and ID of the first
      * photo or 0 if there aren't any photos
      */
     static Pair<Place, Long> details(long id, ContentValues vals) throws IOException {
         long photoId = 0L;
-        Params params = new Params().reference(vals.getAsString(Restaurants.GOOGLE_REFERENCE));
+        Params params = new Params().placeId(vals.getAsString(Restaurants.PLACE_ID));
         Response<Place> resp = Places.details(params, Restaurants.detailsFields());
         Place place = resp.getResult();
         if (resp.getStatus() == OK && place != null) {
             ContentResolver cr = cr();
             cr.update(ContentUris.withAppendedId(Restaurants.CONTENT_URI, id),
                     Restaurants.values(vals, place), null, null);
-            /* insert reviews if none yet */
+            /* update reviews */
             String restaurantId = String.valueOf(id);
-            Uri uri = Uris.limit(Reviews.CONTENT_URI, "1");
-            String[] proj = {_ID};
-            String sel = Reviews.RESTAURANT_ID + " = ? AND " + Reviews.TYPE_ID + " = ?";
-            String[] args = {restaurantId, String.valueOf(GOOGLE.id)};
-            if (Cursors.count(cr.query(uri, proj, sel, args, null)) == 0) {
-                ContentValues[] reviewVals = Reviews.values(id, place);
-                if (reviewVals != null) {
-                    for (ContentValues reviewVal : reviewVals) {
-                        if (reviewVal != null) { // could be if review doesn't have comments
+            ContentValues[] reviewVals = Reviews.values(id, place);
+            if (reviewVals != null) {
+                String sel = Reviews.RESTAURANT_ID + " = ? AND " + Reviews.TYPE_ID + " = ? AND "
+                        + Reviews.WRITTEN_ON + " = ?";
+                String[] args = {restaurantId, String.valueOf(GOOGLE.id), null};
+                for (ContentValues reviewVal : reviewVals) {
+                    if (reviewVal != null) { // could be if review doesn't have comments
+                        args[2] = reviewVal.getAsString(Reviews.WRITTEN_ON);
+                        if (cr.update(Reviews.CONTENT_URI, reviewVal, sel, args) == 0) {
                             cr.insert(Reviews.CONTENT_URI, reviewVal);
                         }
                     }
-                    cr.call(AUTHORITY_URI, CALL_UPDATE_RESTAURANT_RATING, restaurantId, null);
                 }
+                cr.call(AUTHORITY_URI, CALL_UPDATE_RESTAURANT_RATING, restaurantId, null);
             }
             /* insert photos if none yet */
-            uri = Uris.limit(RestaurantPhotos.CONTENT_URI, "1");
-            sel = RestaurantPhotos.RESTAURANT_ID + " = ?";
-            args = new String[]{restaurantId};
+            Uri uri = Uris.limit(RestaurantPhotos.CONTENT_URI, "1");
+            String[] proj = {_ID};
+            String sel = RestaurantPhotos.RESTAURANT_ID + " = ?";
+            String[] args = {restaurantId};
             photoId = Cursors.firstLong(cr.query(uri, proj, sel, args, _ID));
             if (photoId <= 0) {
                 ContentValues[] photoVals = RestaurantPhotos.values(id, place);

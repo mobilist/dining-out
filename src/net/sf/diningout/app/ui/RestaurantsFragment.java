@@ -45,9 +45,6 @@ import android.widget.SearchView.OnQueryTextListener;
 import android.widget.ShareActionProvider;
 import android.widget.ShareActionProvider.OnShareTargetSelectedListener;
 
-import com.github.amlcurran.showcaseview.ShowcaseView.Builder;
-import com.github.amlcurran.showcaseview.targets.ActionItemTarget;
-
 import net.sf.diningout.R;
 import net.sf.diningout.provider.Contract.Restaurants;
 import net.sf.diningout.undobar.Undoer;
@@ -57,6 +54,7 @@ import net.sf.sprockets.content.EasyCursorLoader;
 import net.sf.sprockets.content.LocalCursorLoader;
 import net.sf.sprockets.content.Managers;
 import net.sf.sprockets.database.EasyCursor;
+import net.sf.sprockets.sql.SQLite;
 import net.sf.sprockets.util.SparseArrays;
 import net.sf.sprockets.widget.SearchViews;
 
@@ -66,11 +64,10 @@ import icepick.Icicle;
 import static android.content.Intent.ACTION_SEND;
 import static android.content.Intent.EXTRA_SUBJECT;
 import static android.content.Intent.EXTRA_TEXT;
+import static android.content.Intent.FLAG_ACTIVITY_REORDER_TO_FRONT;
 import static android.provider.BaseColumns._ID;
 import static net.sf.diningout.data.Status.ACTIVE;
 import static net.sf.diningout.data.Status.DELETED;
-import static net.sf.sprockets.database.sqlite.SQLite.millis;
-import static net.sf.sprockets.database.sqlite.SQLite.normalise;
 import static net.sf.sprockets.gms.analytics.Trackers.event;
 
 /**
@@ -96,7 +93,6 @@ public class RestaurantsFragment extends SprocketsFragment
     Bundle mLoaderArgs;
     private Listener mListener;
     private SearchView mSearch;
-    private boolean mShowcaseShown;
     private ActionMode mActionMode;
     private final Intent mShare = new Intent(ACTION_SEND).setType("text/plain");
 
@@ -124,13 +120,13 @@ public class RestaurantsFragment extends SprocketsFragment
         mGrid.setAdapter(new RestaurantCursorAdapter(mGrid));
         mGrid.setOnItemClickListener(this);
         mGrid.setMultiChoiceModeListener(new ChoiceListener());
-        mListener.onViewCreated(view);
+        mListener.onViewCreated((AbsListView) view);
     }
 
     @Override
     public void onActivityCreated(Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
-        getLoaderManager().initLoader(0, null, this);
+        getLoaderManager().initLoader(0, mLoaderArgs, this);
     }
 
     @Override
@@ -145,7 +141,7 @@ public class RestaurantsFragment extends SprocketsFragment
         String searchQuery = args != null ? args.getString(SEARCH_QUERY) : null;
         if (!TextUtils.isEmpty(searchQuery)) {
             sel.append(" AND ").append(Restaurants.NORMALISED_NAME).append(" LIKE ?");
-            String filter = '%' + normalise(searchQuery) + '%';
+            String filter = '%' + SQLite.normalise(searchQuery) + '%';
             selArgs = new String[]{String.valueOf(ACTIVE.id), filter, filter.substring(1)};
             order = Restaurants.NORMALISED_NAME + " LIKE ? DESC, " + Restaurants.NAME;
         } else {
@@ -155,10 +151,11 @@ public class RestaurantsFragment extends SprocketsFragment
                     order = Restaurants.NAME + " = '', " + Restaurants.NAME; // placeholders at end
                     break;
                 case 1:
-                    proj[proj.length - 1] = millis(Restaurants.LAST_VISIT_ON);
+                    proj[proj.length - 1] = SQLite.millis(Restaurants.LAST_VISIT_ON);
                     order = Restaurants.LAST_VISIT_ON;
                     break;
                 case 2:
+                case 3:
                     order = Restaurants.DISTANCE + " IS NULL, " + Restaurants.DISTANCE;
                     loader = new LocalCursorLoader(a, Restaurants.CONTENT_URI, proj,
                             sel.toString(), selArgs, order) {
@@ -182,13 +179,10 @@ public class RestaurantsFragment extends SprocketsFragment
         if (mGrid != null) {
             ((CursorAdapter) mGrid.getAdapter()).swapCursor(c);
             updateActionMode();
-            if (!mShowcaseShown && c.getCount() == 0 && mListener.onRestaurantsOptionsMenu()) {
-                if (mLoaderArgs == null || TextUtils.isEmpty(mLoaderArgs.getString(SEARCH_QUERY))) {
-                    new Builder(a, true).setTarget(new ActionItemTarget(a, R.id.add))
-                            .setContentTitle(R.string.restaurants_showcase_title)
-                            .setContentText(R.string.restaurants_showcase_detail).build();
-                    mShowcaseShown = true; // guard against multiple loads on config change
-                }
+            if (c.getCount() == 0 && (mLoaderArgs == null
+                    || TextUtils.isEmpty(mLoaderArgs.getString(SEARCH_QUERY)))) {
+                startActivity(new Intent(a, RestaurantAddActivity.class)
+                        .addFlags(FLAG_ACTIVITY_REORDER_TO_FRONT));
             }
         }
     }
@@ -250,19 +244,29 @@ public class RestaurantsFragment extends SprocketsFragment
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        switch (item.getItemId()) {
-            case R.id.add:
-                startActivity(new Intent(a, RestaurantAddActivity.class));
-                return true;
+        if (mListener.onRestaurantsOptionsMenu()) { // don't respond unless menu items added
+            switch (item.getItemId()) {
+                case R.id.add:
+                    startActivity(new Intent(a, RestaurantAddActivity.class));
+                    a.overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
+                    return true;
+            }
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    /**
+     * Set the sort option that should be used when loading the restaurants.
+     */
+    void setSort(int position) {
+        initLoaderArgs().putInt(SORT, position);
     }
 
     /**
      * Sort the restaurants by the sort option.
      */
     void sort(int position) {
-        initLoaderArgs().putInt(SORT, position);
+        setSort(position);
         mLoaderArgs.remove(SEARCH_QUERY);
         getLoaderManager().restartLoader(0, mLoaderArgs, this);
         mGrid.smoothScrollToPosition(0);
@@ -311,7 +315,7 @@ public class RestaurantsFragment extends SprocketsFragment
         /**
          * The restaurants list has been created.
          */
-        void onViewCreated(View view);
+        void onViewCreated(AbsListView view);
 
         /**
          * The restaurants options menu is being created. Return true to add the menu items or false

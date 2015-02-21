@@ -19,22 +19,34 @@ package net.sf.diningout.picasso;
 
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
+import android.graphics.drawable.ShapeDrawable;
+import android.widget.ImageView;
 
+import com.amulyakhare.textdrawable.TextDrawable;
+import com.amulyakhare.textdrawable.TextDrawable.IShapeBuilder;
+
+import net.sf.diningout.R;
 import net.sf.diningout.provider.Contract.Columns;
 import net.sf.sprockets.database.EasyCursor;
 import net.sf.sprockets.graphics.drawable.Drawables;
+
+import static net.sf.sprockets.app.SprocketsApplication.res;
 
 /**
  * Provides Drawables for placeholders.
  */
 public class Placeholders {
+    private static final IShapeBuilder sRectBuilder = TextDrawable.builder()
+            .beginConfig().textColor(res().getColor(R.color.placeholder_text)).endConfig();
+    private static final IShapeBuilder sRoundBuilder = TextDrawable.builder();
+
     private Placeholders() {
     }
 
     /**
-     * Get the default placeholder.
+     * Get a default placeholder.
      */
-    public static Drawable get() {
+    public static Drawable rect() {
         return Drawables.darkColor();
     }
 
@@ -43,8 +55,45 @@ public class Placeholders {
      *
      * @return default placeholder if the cursor is null or does not have a color value
      */
-    public static Drawable get(EasyCursor c) {
+    public static Drawable rect(EasyCursor c) {
         return c != null && !c.isNull(Columns.COLOR) ? new ColorDrawable(c.getInt(Columns.COLOR))
-                : get();
+                : rect();
+    }
+
+    /**
+     * Write the first letter of the text in the centre of the view's ColorDrawable.
+     */
+    public static void rect(ImageView view, String text) {
+        if (text.length() > 0) {
+            view.setImageDrawable(sRectBuilder.buildRect(text.substring(0, 1),
+                    ((ColorDrawable) view.getDrawable()).getColor()));
+        }
+    }
+
+    /**
+     * Get a default placeholder.
+     */
+    public static Drawable round() {
+        return Drawables.darkOval();
+    }
+
+    /**
+     * Get a placeholder with the cursor's {@link Columns#COLOR color}.
+     *
+     * @return default placeholder if the cursor is null or does not have a color value
+     */
+    public static Drawable round(EasyCursor c) {
+        return c != null && !c.isNull(Columns.COLOR) ? Drawables.oval(c.getInt(Columns.COLOR))
+                : round();
+    }
+
+    /**
+     * Write the first letter of the text in the centre of the view's ShapeDrawable.
+     */
+    public static void round(ImageView view, String text) {
+        if (text.length() > 0) {
+            view.setImageDrawable(sRoundBuilder.buildRound(text.substring(0, 1),
+                    ((ShapeDrawable) view.getDrawable()).getPaint().getColor()));
+        }
     }
 }

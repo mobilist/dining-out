@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 pushbit <pushbit@gmail.com>
+ * Copyright 2014-2015 pushbit <pushbit@gmail.com>
  * 
  * This file is part of Dining Out.
  * 
@@ -33,30 +33,28 @@ import android.widget.GridView;
 import net.sf.diningout.R;
 import net.sf.diningout.app.RestaurantService;
 import net.sf.diningout.provider.Contract.Restaurants;
-import net.sf.sprockets.app.ui.SprocketsActivity;
 import net.sf.sprockets.database.Cursors;
 import net.sf.sprockets.database.EasyCursor;
 import net.sf.sprockets.google.Place;
-import net.sf.sprockets.google.Place.IdPredicate;
+import net.sf.sprockets.google.Place.Id.Filter;
+import net.sf.sprockets.sql.SQLite;
 
 import icepick.Icicle;
 
 import static android.provider.BaseColumns._ID;
-import static net.sf.diningout.app.RestaurantService.EXTRA_ID;
+import static net.sf.diningout.app.ui.RestaurantActivity.EXTRA_ID;
 import static net.sf.diningout.data.Status.ACTIVE;
 import static net.sf.sprockets.app.SprocketsApplication.cr;
-import static net.sf.sprockets.database.sqlite.SQLite.normalise;
 import static net.sf.sprockets.gms.analytics.Trackers.event;
 
 /**
  * Displays restaurant autocomplete and nearby restaurants or restaurant search results.
  */
-public class RestaurantAddActivity extends SprocketsActivity implements LoaderCallbacks<Cursor>,
-        RestaurantAutocompleteFragment.Listener, RestaurantsNearbyFragment.Listener {
+public class RestaurantAddActivity extends BaseNavigationDrawerActivity
+        implements LoaderCallbacks<Cursor>, RestaurantAutocompleteFragment.Listener,
+        RestaurantsNearbyFragment.Listener {
     @Icicle
-    String mId;
-    @Icicle
-    String mReference;
+    String mPlaceId;
     @Icicle
     String mName;
     @Icicle
@@ -71,17 +69,17 @@ public class RestaurantAddActivity extends SprocketsActivity implements LoaderCa
 
     @Override
     public Loader<Cursor> onCreateLoader(int id, Bundle args) {
-        String[] proj = {Restaurants.GOOGLE_ID};
-        String sel = Restaurants.GOOGLE_ID + " IS NOT NULL AND " + Restaurants.STATUS_ID + " = ?";
+        String[] proj = {Restaurants.PLACE_ID};
+        String sel = Restaurants.PLACE_ID + " IS NOT NULL AND " + Restaurants.STATUS_ID + " = ?";
         String[] selArgs = {String.valueOf(ACTIVE.id)};
         return new CursorLoader(this, Restaurants.CONTENT_URI, proj, sel, selArgs, null);
     }
 
     @Override
     public void onLoadFinished(Loader<Cursor> loader, Cursor data) {
-        IdPredicate filter = null;
+        Filter filter = null;
         if (data.getCount() > 0) {
-            filter = new IdPredicate().exclude(Cursors.allStrings(data, false));
+            filter = new Filter().exclude(Cursors.allStrings(data, false));
             autocomplete().mName.setPlaceFilter(filter);
         }
         nearby().filter(filter);
@@ -98,22 +96,21 @@ public class RestaurantAddActivity extends SprocketsActivity implements LoaderCa
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
             case R.id.done:
-                ContentValues vals = new ContentValues(5);
+                ContentValues vals = new ContentValues(4);
                 long id = 0L;
-                if (mId != null) { // check for existing Google restaurant, update or insert new
+                if (mPlaceId != null) { // check for existing Google place, update or insert new
                     String[] proj = {_ID, Restaurants.STATUS_ID};
-                    String sel = Restaurants.GOOGLE_ID + " = ?";
-                    String[] args = {mId};
+                    String sel = Restaurants.PLACE_ID + " = ?";
+                    String[] args = {mPlaceId};
                     EasyCursor c = new EasyCursor(cr().query(Restaurants.CONTENT_URI, proj,
                             sel, args, null));
                     if (c.moveToFirst()) {
                         id = c.getLong(_ID);
                     }
-                    vals.put(Restaurants.GOOGLE_REFERENCE, mReference);
                     vals.put(Restaurants.NAME, mName);
-                    vals.put(Restaurants.NORMALISED_NAME, normalise(mName));
+                    vals.put(Restaurants.NORMALISED_NAME, SQLite.normalise(mName));
                     if (id <= 0) { // insert new
-                        vals.put(Restaurants.GOOGLE_ID, mId);
+                        vals.put(Restaurants.PLACE_ID, mPlaceId);
                         vals.put(Restaurants.COLOR, Restaurants.defaultColor());
                         id = ContentUris.parseId(cr().insert(Restaurants.CONTENT_URI, vals));
                     } else if (c.getInt(Restaurants.STATUS_ID) != ACTIVE.id) { // resurrect
@@ -124,21 +121,21 @@ public class RestaurantAddActivity extends SprocketsActivity implements LoaderCa
                     }
                     c.close();
                     if (id > 0) {
-                        startService(new Intent(this, RestaurantService.class).putExtra(EXTRA_ID,
-                                id));
+                        startService(new Intent(this, RestaurantService.class)
+                                .putExtra(RestaurantService.EXTRA_ID, id));
                     }
                 } else { // insert own restaurant
                     String name = autocomplete().mName.getText().toString().trim();
                     if (!TextUtils.isEmpty(name)) {
                         vals.put(Restaurants.NAME, name);
-                        vals.put(Restaurants.NORMALISED_NAME, normalise(name));
+                        vals.put(Restaurants.NORMALISED_NAME, SQLite.normalise(name));
                         vals.put(Restaurants.COLOR, Restaurants.defaultColor());
                         id = ContentUris.parseId(cr().insert(Restaurants.CONTENT_URI, vals));
                     }
                 }
                 if (id > 0) {
-                    startActivity(new Intent(this, RestaurantActivity.class).putExtra(EXTRA_ID,
-                            id));
+                    startActivity(
+                            new Intent(this, RestaurantActivity.class).putExtra(EXTRA_ID, id));
                     finish();
                 }
                 if (mSource != null) {
@@ -175,8 +172,7 @@ public class RestaurantAddActivity extends SprocketsActivity implements LoaderCa
      * Set fields to default values.
      */
     private void clear() {
-        mId = null;
-        mReference = null;
+        mPlaceId = null;
         mName = null;
         mSource = null;
     }
@@ -203,8 +199,7 @@ public class RestaurantAddActivity extends SprocketsActivity implements LoaderCa
      * Populate fields from the place.
      */
     private void fields(Place place, String source) {
-        mId = place.getId();
-        mReference = place.getReference();
+        mPlaceId = place.getPlaceId().getId();
         mName = place.getName();
         mSource = source;
     }

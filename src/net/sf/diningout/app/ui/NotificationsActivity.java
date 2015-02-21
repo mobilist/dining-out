@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 pushbit <pushbit@gmail.com>
+ * Copyright 2014-2015 pushbit <pushbit@gmail.com>
  * 
  * This file is part of Dining Out.
  * 
@@ -30,6 +30,7 @@ import net.sf.diningout.data.Sync.Type;
 import net.sf.sprockets.view.ViewHolder;
 
 import butterknife.InjectView;
+import butterknife.Optional;
 
 import static net.sf.diningout.app.ui.RestaurantActivity.EXTRA_ID;
 
@@ -37,6 +38,7 @@ import static net.sf.diningout.app.ui.RestaurantActivity.EXTRA_ID;
  * Displays a list of notifications.
  */
 public class NotificationsActivity extends BaseNavigationDrawerActivity implements Listener {
+    @Optional
     @InjectView(R.id.root)
     DrawerLayout mDrawerLayout;
 
@@ -44,7 +46,9 @@ public class NotificationsActivity extends BaseNavigationDrawerActivity implemen
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.notifications_activity);
-        setDrawerLayout(mDrawerLayout);
+        if (mDrawerLayout != null) {
+            setDrawerLayout(mDrawerLayout);
+        }
     }
 
     @Override
@@ -58,8 +62,8 @@ public class NotificationsActivity extends BaseNavigationDrawerActivity implemen
                 RestaurantActivity.sPlaceholder =
                         ((NotificationHolder) ViewHolder.get(view)).mPhoto.getDrawable();
                 startActivity(new Intent(this, RestaurantActivity.class).putExtra(EXTRA_ID, id),
-                        ActivityOptions.makeScaleUpAnimation(view, 0, 0,
-                                view.getWidth(), view.getHeight()).toBundle());
+                        ActivityOptions.makeScaleUpAnimation(
+                                view, 0, 0, view.getWidth(), view.getHeight()).toBundle());
                 break;
         }
     }

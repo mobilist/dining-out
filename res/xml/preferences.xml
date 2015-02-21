@@ -23,6 +23,13 @@
         android:title="@string/vibrate"
         android:defaultValue="false"/>
 
+    <ListPreference
+        android:key="distance_unit"
+        android:title="@string/distance_units"
+        android:summary="%s"
+        android:entries="@array/distance_units_entries"
+        android:defaultValue=""/>
+
     <CheckBoxPreference
         android:key="allow_analytics"
         android:title="@string/allow_analytics"

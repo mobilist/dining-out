@@ -9,6 +9,8 @@
     <dimen name="restaurant_detail_max_width">360dp</dimen>
     <!-- restaurant_photo_width * .5 -->
     <dimen name="restaurant_detail_edit_width">240dp</dimen>
+    <!-- scales with system text size changes -->
+    <dimen name="review_photo">@dimen/text_large</dimen>
     <!-- 112dp + padding -->
     <dimen name="notification_card_height">130dp</dimen>
 </resources>

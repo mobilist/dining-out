@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 pushbit <pushbit@gmail.com>
+ * Copyright 2014-2015 pushbit <pushbit@gmail.com>
  * 
  * This file is part of Dining Out.
  * 
@@ -18,16 +18,24 @@
 package net.sf.diningout.app.ui;
 
 import android.os.Bundle;
+import android.preference.ListPreference;
 import android.support.v4.widget.DrawerLayout;
 
 import net.sf.diningout.R;
+import net.sf.sprockets.app.ui.SprocketsPreferenceFragment;
 
 import butterknife.InjectView;
+import butterknife.Optional;
+
+import static net.sf.diningout.preference.Keys.DISTANCE_UNIT;
+import static net.sf.sprockets.util.MeasureUnit.KILOMETER;
+import static net.sf.sprockets.util.MeasureUnit.MILE;
 
 /**
  * Displays app settings.
  */
 public class SettingsActivity extends BaseNavigationDrawerActivity {
+    @Optional
     @InjectView(R.id.root)
     DrawerLayout mDrawerLayout;
 
@@ -35,6 +43,20 @@ public class SettingsActivity extends BaseNavigationDrawerActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.settings_activity);
-        setDrawerLayout(mDrawerLayout);
+        if (mDrawerLayout != null) {
+            setDrawerLayout(mDrawerLayout);
+        }
+    }
+
+    /**
+     * Adds dynamic values that aren't defined in the preferences resource.
+     */
+    public static class SettingsFragment extends SprocketsPreferenceFragment {
+        @Override
+        public void addPreferencesFromResource(int preferencesResId) {
+            super.addPreferencesFromResource(preferencesResId);
+            ListPreference pref = (ListPreference) findPreference(DISTANCE_UNIT);
+            pref.setEntryValues(new String[]{"", KILOMETER.getSubtype(), MILE.getSubtype()});
+        }
     }
 }

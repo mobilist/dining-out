@@ -26,6 +26,7 @@ import android.location.Location;
 import android.os.Bundle;
 import android.support.v4.widget.DrawerLayout;
 import android.view.View;
+import android.widget.AbsListView;
 import android.widget.ArrayAdapter;
 
 import com.google.android.gms.maps.GoogleMap;
@@ -39,6 +40,7 @@ import com.google.common.collect.ImmutableSet;
 
 import net.sf.diningout.R;
 import net.sf.diningout.app.ui.RestaurantsFragment.Listener;
+import net.sf.diningout.preference.Keys;
 import net.sf.diningout.provider.Contract.Restaurants;
 import net.sf.diningout.undobar.Undoer;
 import net.sf.diningout.widget.RestaurantHolder;
@@ -56,6 +58,7 @@ import java.util.Map;
 import java.util.Set;
 
 import butterknife.InjectView;
+import butterknife.Optional;
 import icepick.Icicle;
 
 import static android.app.ActionBar.NAVIGATION_MODE_LIST;
@@ -64,10 +67,12 @@ import static android.support.v4.widget.DrawerLayout.LOCK_MODE_LOCKED_CLOSED;
 import static android.support.v4.widget.DrawerLayout.LOCK_MODE_UNLOCKED;
 import static android.view.Gravity.START;
 import static net.sf.diningout.app.ui.RestaurantActivity.EXTRA_ID;
+import static net.sf.diningout.app.ui.RestaurantActivity.EXTRA_SORT;
 import static net.sf.diningout.data.Status.ACTIVE;
 import static net.sf.diningout.data.Status.DELETED;
 import static net.sf.sprockets.app.SprocketsApplication.res;
 import static net.sf.sprockets.gms.analytics.Trackers.event;
+import static net.sf.sprockets.util.MeasureUnit.MILE;
 
 /**
  * Displays a list of the user's restaurants.
@@ -84,6 +89,7 @@ public class RestaurantsActivity extends BaseNavigationDrawerActivity
     private static final String MAP = "map";
     private static final int MAP_NAVIGATION_ITEM_POSITION = 3;
 
+    @Optional
     @InjectView(R.id.root)
     DrawerLayout mDrawerLayout;
     /**
@@ -113,7 +119,9 @@ public class RestaurantsActivity extends BaseNavigationDrawerActivity
         ab.setListNavigationCallbacks(adapter, this);
         ab.setSelectedNavigationItem(mSort); // restore when rotating with navigation drawer open
         setContentView(R.layout.restaurants_activity);
-        setDrawerLayout(mDrawerLayout);
+        if (mDrawerLayout != null) {
+            setDrawerLayout(mDrawerLayout);
+        }
         /* set up the map if it was previously showing */
         MapFragment map = map();
         if (map != null) {
@@ -213,8 +221,10 @@ public class RestaurantsActivity extends BaseNavigationDrawerActivity
                     c.getDouble(Restaurants.LATITUDE), c.getDouble(Restaurants.LONGITUDE));
             float rating = c.getFloat(Restaurants.RATING);
             double distance = Math.sqrt(c.getDouble(Restaurants.DISTANCE));
-            String snippet = rating > 0.0f ? getString(R.string.rating_distance, rating, distance)
-                    : getString(R.string.distance_km, distance);
+            boolean miles = Keys.isDistanceUnit(MILE);
+            String snippet = rating > 0.0f
+                    ? getString(miles ? R.string.rating_mi : R.string.rating_km, rating, distance)
+                    : getString(miles ? R.string.mi : R.string.km, distance);
             Marker marker = mMap.addMarker(options.position(position)
                     .title(c.getString(Restaurants.NAME)).snippet(snippet));
             if (mMarkers == null) {
@@ -236,7 +246,7 @@ public class RestaurantsActivity extends BaseNavigationDrawerActivity
     }
 
     @Override
-    public void onViewCreated(View view) {
+    public void onViewCreated(AbsListView view) {
         if (mSort == MAP_NAVIGATION_ITEM_POSITION) { // avoid restaurants flash before map is shown
             getFragmentManager().beginTransaction().hide(restaurants()).commit();
         }
@@ -244,13 +254,15 @@ public class RestaurantsActivity extends BaseNavigationDrawerActivity
 
     @Override
     public boolean onRestaurantsOptionsMenu() {
-        return !mDrawerLayout.isDrawerOpen(START);
+        return mDrawerLayout == null || !mDrawerLayout.isDrawerOpen(START);
     }
 
     @Override
     public void onRestaurantsSearch(String query) {
-        mDrawerLayout.setDrawerLockMode(
-                query.length() > 0 ? LOCK_MODE_LOCKED_CLOSED : LOCK_MODE_UNLOCKED, START);
+        if (mDrawerLayout != null) {
+            mDrawerLayout.setDrawerLockMode(
+                    query.length() > 0 ? LOCK_MODE_LOCKED_CLOSED : LOCK_MODE_UNLOCKED, START);
+        }
     }
 
     @Override
@@ -261,7 +273,8 @@ public class RestaurantsActivity extends BaseNavigationDrawerActivity
                     ((RestaurantHolder) ViewHolder.get(view)).photo.getDrawable();
             options = MoreActivityOptions.makeScaleUpAnimation(view).toBundle();
         }
-        startActivity(new Intent(this, RestaurantActivity.class).putExtra(EXTRA_ID, id), options);
+        startActivity(new Intent(this, RestaurantActivity.class)
+                .putExtra(EXTRA_ID, id).putExtra(EXTRA_SORT, mSort), options);
     }
 
     @Override

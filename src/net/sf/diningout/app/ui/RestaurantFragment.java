@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 pushbit <pushbit@gmail.com>
+ * Copyright 2014-2015 pushbit <pushbit@gmail.com>
  * 
  * This file is part of Dining Out.
  * 
@@ -52,6 +52,7 @@ import com.squareup.picasso.RequestCreator;
 import net.sf.diningout.R;
 import net.sf.diningout.app.RestaurantGeocodeService;
 import net.sf.diningout.app.RestaurantService;
+import net.sf.diningout.picasso.Placeholders;
 import net.sf.diningout.provider.Contract.RestaurantPhotos;
 import net.sf.diningout.provider.Contract.Restaurants;
 import net.sf.sprockets.app.ui.SprocketsFragment;
@@ -82,7 +83,6 @@ import static android.text.Spanned.SPAN_INCLUSIVE_INCLUSIVE;
 import static butterknife.ButterKnife.findById;
 import static net.sf.diningout.app.ui.RestaurantActivity.EXTRA_ID;
 import static net.sf.diningout.app.ui.RestaurantsActivity.EXTRA_DELETE_ID;
-import static net.sf.diningout.picasso.Placeholders.get;
 import static net.sf.diningout.picasso.Transformations.LEFT;
 import static net.sf.sprockets.app.SprocketsApplication.cr;
 import static net.sf.sprockets.app.SprocketsApplication.res;
@@ -115,7 +115,7 @@ public class RestaurantFragment extends SprocketsFragment implements LoaderCallb
     @InjectView(R.id.edit_website_stub)
     ViewStub mEditWebsiteStub;
     private long mId;
-    private String mGoogleId;
+    private String mPlaceId;
     private String mGoogleUrl;
     private String mName;
     private String mAddress;
@@ -152,8 +152,8 @@ public class RestaurantFragment extends SprocketsFragment implements LoaderCallb
     @Override
     public void onViewCreated(View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        mPhoto.setImageDrawable(
-                RestaurantActivity.sPlaceholder != null ? RestaurantActivity.sPlaceholder : get());
+        mPhoto.setImageDrawable(RestaurantActivity.sPlaceholder != null
+                ? RestaurantActivity.sPlaceholder : Placeholders.rect());
     }
 
     @Override
@@ -164,7 +164,7 @@ public class RestaurantFragment extends SprocketsFragment implements LoaderCallb
 
     @Override
     public Loader<EasyCursor> onCreateLoader(int id, Bundle args) {
-        String[] proj = {Restaurants.GOOGLE_ID, Restaurants.GOOGLE_URL, Restaurants.NAME,
+        String[] proj = {Restaurants.PLACE_ID, Restaurants.GOOGLE_URL, Restaurants.NAME,
                 Restaurants.ADDRESS, Restaurants.VICINITY, Restaurants.LATITUDE,
                 Restaurants.LONGITUDE, Restaurants.INTL_PHONE, Restaurants.LOCAL_PHONE,
                 Restaurants.URL, Restaurants.COLOR};
@@ -175,7 +175,7 @@ public class RestaurantFragment extends SprocketsFragment implements LoaderCallb
     @Override
     public void onLoadFinished(Loader<EasyCursor> loader, EasyCursor c) {
         if (mNameView != null && c.moveToFirst()) {
-            mGoogleId = c.getString(Restaurants.GOOGLE_ID);
+            mPlaceId = c.getString(Restaurants.PLACE_ID);
             mGoogleUrl = c.getString(Restaurants.GOOGLE_URL);
             mName = c.getString(Restaurants.NAME);
             mNameView.setText(mName);
@@ -187,11 +187,9 @@ public class RestaurantFragment extends SprocketsFragment implements LoaderCallb
             mIntlPhone = c.getString(Restaurants.INTL_PHONE);
             mLocalPhone.setText(c.getString(Restaurants.LOCAL_PHONE));
             mUrl = c.getString(Restaurants.URL);
-            if (!TextUtils.isEmpty(mUrl)) {
-                mWebsite.setText(Uri.parse(mUrl).getHost());
-            }
+            mWebsite.setText(!TextUtils.isEmpty(mUrl) ? Uri.parse(mUrl).getHost() : null);
             /* prompt to add details for own restaurant */
-            if (mGoogleId == null) {
+            if (mPlaceId == null) {
                 if (TextUtils.isEmpty(mAddress)) {
                     mVicinity.setText(R.string.add_address);
                 }
@@ -235,7 +233,7 @@ public class RestaurantFragment extends SprocketsFragment implements LoaderCallb
                 req.placeholder(RestaurantActivity.sPlaceholder);
                 RestaurantActivity.sPlaceholder = null; // only use once, bounds can be reset later
             } else {
-                req.placeholder(get(c));
+                req.placeholder(Placeholders.rect(c));
             }
             req.into(mPhoto, new EmptyCallback() {
                 @Override
@@ -295,7 +293,7 @@ public class RestaurantFragment extends SprocketsFragment implements LoaderCallb
                     intent = new Intent(ACTION_VIEW,
                             Uri.parse("geo:" + mLat + ',' + mLong + "?q=" + Uri.encode(mAddress)));
                     eventLabel = "address";
-                } else if (mGoogleId == null) { // edit address
+                } else if (mPlaceId == null) { // edit address
                     view.animate().translationX(view.getWidth()).setInterpolator(ANTICIPATE)
                             .withEndAction(new ShowEditAddress());
                 }
@@ -304,7 +302,7 @@ public class RestaurantFragment extends SprocketsFragment implements LoaderCallb
                 if (!TextUtils.isEmpty(mIntlPhone)) {
                     intent = new Intent(ACTION_DIAL, Uri.parse("tel:" + Uri.encode(mIntlPhone)));
                     eventLabel = "phone";
-                } else if (mGoogleId == null) { // edit phone
+                } else if (mPlaceId == null) { // edit phone
                     view.animate().translationX(view.getWidth()).setInterpolator(ANTICIPATE)
                             .withEndAction(new ShowEditPhone());
                 }
@@ -313,7 +311,7 @@ public class RestaurantFragment extends SprocketsFragment implements LoaderCallb
                 if (!TextUtils.isEmpty(mUrl)) {
                     intent = new Intent(ACTION_VIEW, Uri.parse(mUrl));
                     eventLabel = "website";
-                } else if (mGoogleId == null) { // edit website
+                } else if (mPlaceId == null) { // edit website
                     view.animate().translationX(view.getWidth()).setInterpolator(ANTICIPATE)
                             .withEndAction(new ShowEditWebsite());
                 }
@@ -402,6 +400,12 @@ public class RestaurantFragment extends SprocketsFragment implements LoaderCallb
                 InputMethods.hide(mPhoto);
             }
         }, 750L); // after detail slides out and back in
+    }
+
+    void show(long restaurantId) {
+        mId = restaurantId;
+        mPhotoLoaded = false;
+        getLoaderManager().restartLoader(0, null, this);
     }
 
     @Override
